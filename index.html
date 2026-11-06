@@ -27,7 +27,7 @@
         <a href="#crear" class="btn btn-primary btn-sm">Crear perfil</a>
       </span>
       <span id="authIn" class="nav-auth" hidden>
-        <a href="#perfil" class="me-link" data-action="open-my-profile"><span id="meAvatar"></span><span id="meName"></span></a>
+        <a href="#perfil" class="me-link" data-action="open-my-profile" title="Mi perfil"><span id="meAvatar"></span><span id="meName"></span></a>
         <button type="button" class="btn btn-ghost" data-action="logout">Salir</button>
       </span>
     </nav>
@@ -35,6 +35,10 @@
 </header>
 
 <main>
+<section id="perfil" class="wrap profile-section" hidden>
+  <div id="profile" class="card profile"></div>
+</section>
+
 <section id="inicio" class="wrap hero">
   <div class="hero-text">
     <p class="eyebrow">Red profesional · Bienes raíces y construcción en Florida</p>
@@ -104,9 +108,6 @@
   <div id="emptyMembers" class="empty" hidden></div>
 </section>
 
-<section id="perfil" class="wrap section-tight" hidden>
-  <div id="profile" class="card profile"></div>
-</section>
 
 <section id="mensajes" class="wrap section">
   <h2>Mensajes</h2>

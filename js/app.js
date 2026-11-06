@@ -363,12 +363,13 @@
   }
 
   async function openProfile(id, scroll) {
+    var changed = state.sel !== id;
     state.sel = id;
-    state.selData = null;
+    if (changed) state.selData = null;
     renderProfile();
+    if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     await loadSelected();
     renderProfile();
-    if (scroll) $('perfil').scrollIntoView({ behavior: 'smooth' });
   }
 
   // ---------- Render: solicitudes ----------
@@ -550,6 +551,7 @@
   }
 
   function renderAll() {
+    document.body.classList.toggle('logged-in', !!state.user);
     renderHeader();
     renderMembers();
     renderProfile();
@@ -626,12 +628,16 @@
       }
       await Promise.all([loadConnections(), loadMessages(), loadCollabRequests()]);
       subscribe();
+      // Al entrar o registrarse, la página abre en tu perfil (arriba de todo)
+      state.sel = user.id;
     } else {
       unsubscribe();
       state.conns = []; state.msgs = []; state.collabReqs = [];
+      state.sel = null;
     }
     if (state.sel) await loadSelected();
     renderAll();
+    if (user) window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   sb.auth.onAuthStateChange(function (event, session) {
@@ -812,8 +818,7 @@
     if (res.error) return formMsg('signupMsg', errText(res.error));
     $('cPass').value = '';
     if (res.data && res.data.session) {
-      toast('¡Listo! Ya estás en la red.');
-      setTimeout(function () { if (me()) openProfile(me(), true); }, 1500);
+      toast('¡Listo! Ya estás en la red. Completa tu perfil con una foto.');
     } else {
       formMsg('signupMsg', 'Te enviamos un correo a ' + email + '. Abre el enlace para activar tu cuenta y luego entra.', true);
     }
