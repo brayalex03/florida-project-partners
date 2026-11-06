@@ -414,6 +414,14 @@
     }
     if (r.view === 'crear' && state.user) { location.replace('#/perfil'); return; }
     if (r.view === 'mensajes' && !state.user) { location.replace('#/'); return; }
+    if (r.view === 'mensajes') {
+      // Con conversación abierta (#/mensajes/<id>) o en la lista de chats
+      document.body.dataset.chat = r.id ? 'open' : 'list';
+      if (r.id) openChat(r.id);
+      else if (isPhone()) { state.active = null; renderMessenger(); }
+    } else {
+      document.body.dataset.chat = 'list';
+    }
     document.body.dataset.view = r.view;
     renderNav(r.view);
     window.scrollTo(0, 0);
@@ -483,7 +491,10 @@
     if (!act) return;
 
     var p = state.byId[act];
-    $('chatHeader').innerHTML = avatar(p, 44) +
+    $('chatHeader').innerHTML =
+      '<button type="button" class="chat-back" data-action="chat-back" aria-label="Volver a los chats">' +
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>' +
+      avatar(p, 44) +
       '<span class="txt"><strong>' + esc(p.name) + '</strong><small>' + esc(roleLabel(p) + ' · ' + p.city) + '</small></span>';
 
     var t = threadWith(act);
@@ -515,6 +526,12 @@
     var res = await sb.from('messages').update({ read_at: now })
       .eq('sender_id', id).eq('recipient_id', me()).is('read_at', null);
     if (res.error) console.error(res.error);
+  }
+
+  function isPhone() { return window.matchMedia('(max-width: 640px)').matches; }
+  function chatIsOnScreen() {
+    return document.visibilityState === 'visible' && parseRoute().view === 'mensajes' &&
+      (!isPhone() || document.body.dataset.chat === 'open');
   }
 
   function openChat(id) {
@@ -622,7 +639,7 @@
         var i = state.msgs.findIndex(function (m) { return m.id === row.id; });
         if (i >= 0) state.msgs[i] = row; else state.msgs.push(row);
         if (row.sender_id !== me()) delete state.typingFrom[row.sender_id];
-        if (payload.eventType === 'INSERT' && row.sender_id === state.active && row.recipient_id === me() && document.visibilityState === 'visible') {
+        if (payload.eventType === 'INSERT' && row.sender_id === state.active && row.recipient_id === me() && chatIsOnScreen()) {
           markRead(row.sender_id);
         }
         renderMessenger(); renderHeader();
@@ -771,9 +788,14 @@
       case 'reject-conn': el.disabled = true; await rejectConn(id); break;
       case 'open-chat':
         e.preventDefault();
-        openChat(id);
-        if (parseRoute().view !== 'mensajes') go('#/mensajes');
-        setTimeout(function () { $('chatInput').focus({ preventScroll: true }); }, 200);
+        state.chatFromList = parseRoute().view === 'mensajes' && !parseRoute().id;
+        go('#/mensajes/' + id);
+        if (!isPhone()) setTimeout(function () { $('chatInput').focus({ preventScroll: true }); }, 200);
+        break;
+      case 'chat-back':
+        // En el teléfono: volver a la lista de conversaciones
+        if (state.chatFromList) { state.chatFromList = false; history.back(); }
+        else location.replace('#/mensajes');
         break;
       case 'pick-type': state.postType = el.getAttribute('data-type'); renderTypes(); break;
       case 'drop-post-photo': {
@@ -992,7 +1014,7 @@
   $('filterCity').addEventListener('change', function (e) { state.city = e.target.value; renderMembers(); });
 
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible' && state.active) markRead(state.active);
+    if (state.active && chatIsOnScreen()) markRead(state.active);
   });
 
   // ---------- Inicio ----------
