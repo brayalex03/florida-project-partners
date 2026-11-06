@@ -402,6 +402,7 @@
       return;
     }
     if (r.view === 'crear' && state.user) { location.replace('#/perfil'); return; }
+    if (r.view === 'mensajes' && !state.user) { location.replace('#/'); return; }
     document.body.dataset.view = r.view;
     renderNav(r.view);
     window.scrollTo(0, 0);
