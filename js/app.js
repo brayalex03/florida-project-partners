@@ -43,7 +43,8 @@
     typingInbox: null,
     typingOut: null,
     typingOutId: null,
-    lastTypingSent: 0
+    lastTypingSent: 0,
+    goProfile: false
   };
 
   // ---------- Utilidades ----------
@@ -269,7 +270,7 @@
         '<div><h3>' + esc(m.name) + '</h3><p class="role">' + esc(roleLabel(m)) + '</p></div></div>' +
         '<p class="city">' + PIN + esc(m.city) + ', FL</p>' +
         '<p class="short">' + esc(m.short || 'Miembro de la red.') + '</p>' +
-        '<a href="#perfil" class="btn btn-soft" data-action="open-profile" data-id="' + esc(m.id) + '">Ver perfil</a>' +
+        '<a href="#/perfil" class="btn btn-soft" data-action="open-profile" data-id="' + esc(m.id) + '">Ver perfil</a>' +
         '</article>';
     }).join('');
   }
@@ -302,7 +303,7 @@
         '<button type="button" class="btn btn-ghost" data-action="reject-conn" data-id="' + esc(c.id) + '">Ignorar</button>';
     } else {
       actions = '<span class="pill-ok">' + CHECK + 'Conectados</span>' +
-        '<a href="#mensajes" class="btn btn-primary" data-action="open-chat" data-id="' + esc(p.id) + '">Enviar mensaje</a>';
+        '<a href="#/mensajes" class="btn btn-primary" data-action="open-chat" data-id="' + esc(p.id) + '">Enviar mensaje</a>';
     }
 
     var hint = '';
@@ -320,7 +321,7 @@
 
     var contacts = d.contacts.map(function (id) { return state.byId[id]; }).filter(Boolean);
     var contactsHtml = contacts.map(function (c) {
-      return '<a href="#perfil" class="contact" data-action="open-profile" data-id="' + esc(c.id) + '">' + avatar(c, 36) +
+      return '<a href="#/perfil" class="contact" data-action="open-profile" data-id="' + esc(c.id) + '">' + avatar(c, 36) +
         '<span class="txt"><strong>' + esc(c.id === me() ? 'Tú' : c.name) + '</strong><small>' + esc(c.profession) + '</small></span></a>';
     }).join('') || '<p class="small">Todavía sin contactos.</p>';
 
@@ -330,7 +331,7 @@
       var tag = c.confirmed ? '' : (c.collaborator_id ? '<span class="tag-pending">Pendiente</span>' : '<span class="tag-muted">Sin cuenta</span>');
       var canDel = isMe || (c.collaborator_id && c.collaborator_id === me());
       return '<span class="collab">' + avatar(member || { name: name }, 28) +
-        '<span>' + (member ? '<a href="#perfil" class="collab-name" data-action="open-profile" data-id="' + esc(member.id) + '">' + esc(name) + '</a>' : '<strong>' + esc(name) + '</strong>') +
+        '<span>' + (member ? '<a href="#/perfil" class="collab-name" data-action="open-profile" data-id="' + esc(member.id) + '">' + esc(name) + '</a>' : '<strong>' + esc(name) + '</strong>') +
         (member ? ' <span class="role-txt">· ' + esc(member.profession) + '</span>' : '') + '</span>' + tag +
         (canDel ? '<button type="button" class="x-btn" aria-label="Quitar colaboración con ' + esc(name) + '" data-action="del-collab" data-id="' + esc(c.id) + '">×</button>' : '') +
         '</span>';
@@ -362,15 +363,50 @@
       '</div>';
   }
 
-  async function openProfile(id, scroll) {
+  async function openProfile(id) {
     var changed = state.sel !== id;
     state.sel = id;
     if (changed) state.selData = null;
     renderProfile();
-    if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     await loadSelected();
     renderProfile();
   }
+
+  // ---------- Páginas (#/perfil, #/miembros, #/mensajes, #/publicaciones, #/crear) ----------
+  var VIEWS = ['inicio', 'perfil', 'miembros', 'mensajes', 'publicaciones', 'crear'];
+  function parseRoute() {
+    var parts = location.hash.replace(/^#\/?/, '').split('/');
+    var view = parts[0] || 'inicio';
+    return { view: VIEWS.indexOf(view) >= 0 ? view : 'inicio', id: parts[1] || null };
+  }
+  function go(hash) {
+    if (location.hash === hash) route(); else location.hash = hash;
+  }
+  function renderNav(view) {
+    document.querySelectorAll('[data-nav]').forEach(function (a) {
+      var on = a.getAttribute('data-nav') === view && (view !== 'perfil' || state.sel === me());
+      if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+  }
+  async function route() {
+    var r = parseRoute();
+    if (r.view === 'perfil') {
+      var id = r.id || me();
+      if (!id) { location.replace('#/crear'); return; }
+      document.body.dataset.view = 'perfil';
+      window.scrollTo(0, 0);
+      var p = openProfile(id);
+      renderNav('perfil');
+      await p;
+      renderNav('perfil');
+      return;
+    }
+    if (r.view === 'crear' && state.user) { location.replace('#/perfil'); return; }
+    document.body.dataset.view = r.view;
+    renderNav(r.view);
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', route);
 
   // ---------- Render: solicitudes ----------
   function renderRequests() {
@@ -383,14 +419,14 @@
       inc.map(function (c) {
         var p = state.byId[c.requester_id];
         return '<div class="req">' + avatar(p, 44) +
-          '<span class="req-text"><a href="#perfil" data-action="open-profile" data-id="' + esc(p.id) + '">' + esc(p.name) + '</a> quiere conectar contigo<small>' + esc(roleLabel(p) + ' · ' + p.city) + '</small></span>' +
+          '<span class="req-text"><a href="#/perfil" data-action="open-profile" data-id="' + esc(p.id) + '">' + esc(p.name) + '</a> quiere conectar contigo<small>' + esc(roleLabel(p) + ' · ' + p.city) + '</small></span>' +
           '<span class="req-actions"><button type="button" class="btn btn-primary btn-sm" data-action="accept-conn" data-id="' + esc(c.id) + '">Aceptar</button>' +
           '<button type="button" class="btn btn-ghost" data-action="reject-conn" data-id="' + esc(c.id) + '">Ignorar</button></span></div>';
       }).join('') +
       col.map(function (c) {
         var p = state.byId[c.profile_id];
         return '<div class="req">' + avatar(p, 44) +
-          '<span class="req-text"><a href="#perfil" data-action="open-profile" data-id="' + esc(p.id) + '">' + esc(p.name) + '</a> dice que trabajó contigo<small>Al confirmar, aparece en su perfil como colaboración.</small></span>' +
+          '<span class="req-text"><a href="#/perfil" data-action="open-profile" data-id="' + esc(p.id) + '">' + esc(p.name) + '</a> dice que trabajó contigo<small>Al confirmar, aparece en su perfil como colaboración.</small></span>' +
           '<span class="req-actions"><button type="button" class="btn btn-primary btn-sm" data-action="confirm-collab" data-id="' + esc(c.id) + '">Confirmar</button>' +
           '<button type="button" class="btn btn-ghost" data-action="del-collab" data-id="' + esc(c.id) + '">No</button></span></div>';
       }).join('');
@@ -524,8 +560,8 @@
         '<p class="post-text">' + esc(post.body) + '</p>' + photos +
         '<div class="post-actions">' +
           (isMine ? '<button type="button" class="btn btn-ghost" data-action="del-post" data-id="' + esc(post.id) + '">Borrar</button>'
-            : '<a href="#perfil" class="btn btn-soft btn-sm" data-action="open-profile" data-id="' + esc(a.id) + '">Ver perfil</a>' +
-              (connected ? '<a href="#mensajes" class="btn btn-ghost" data-action="open-chat" data-id="' + esc(a.id) + '">Enviar mensaje</a>' : '')) +
+            : '<a href="#/perfil" class="btn btn-soft btn-sm" data-action="open-profile" data-id="' + esc(a.id) + '">Ver perfil</a>' +
+              (connected ? '<a href="#/mensajes" class="btn btn-ghost" data-action="open-chat" data-id="' + esc(a.id) + '">Enviar mensaje</a>' : '')) +
         '</div></article>';
     }).join('');
   }
@@ -628,16 +664,22 @@
       }
       await Promise.all([loadConnections(), loadMessages(), loadCollabRequests()]);
       subscribe();
-      // Al entrar o registrarse, la página abre en tu perfil (arriba de todo)
-      state.sel = user.id;
     } else {
       unsubscribe();
       state.conns = []; state.msgs = []; state.collabReqs = [];
-      state.sel = null;
     }
     if (state.sel) await loadSelected();
     renderAll();
-    if (user) window.scrollTo({ top: 0, behavior: 'smooth' });
+    var view = parseRoute().view;
+    if (user && (state.goProfile || view === 'inicio' || view === 'crear')) {
+      state.goProfile = false;
+      // Al entrar o crear la cuenta: ir a la página de tu perfil
+      go('#/perfil');
+    } else if (!user && (view === 'mensajes' || (view === 'perfil' && !parseRoute().id))) {
+      go('#/');
+    } else {
+      route();
+    }
   }
 
   sb.auth.onAuthStateChange(function (event, session) {
@@ -695,15 +737,16 @@
       case 'close-dialog': { var d = el.closest('dialog'); if (d) d.close(); break; }
       case 'logout':
         await sb.auth.signOut();
+        go('#/');
         toast('Saliste de tu cuenta.');
         break;
       case 'open-my-profile':
         e.preventDefault();
-        if (me()) openProfile(me(), true);
+        go('#/perfil');
         break;
       case 'open-profile':
         e.preventDefault();
-        openProfile(id, true);
+        go('#/perfil/' + id);
         break;
       case 'edit-profile': openEdit(); break;
       case 'add-photo':
@@ -715,8 +758,8 @@
       case 'open-chat':
         e.preventDefault();
         openChat(id);
-        $('mensajes').scrollIntoView({ behavior: 'smooth' });
-        setTimeout(function () { $('chatInput').focus({ preventScroll: true }); }, 400);
+        if (parseRoute().view !== 'mensajes') go('#/mensajes');
+        setTimeout(function () { $('chatInput').focus({ preventScroll: true }); }, 200);
         break;
       case 'pick-type': state.postType = el.getAttribute('data-type'); renderTypes(); break;
       case 'drop-post-photo': {
@@ -790,6 +833,7 @@
     var res = await sb.auth.signInWithPassword({ email: $('lEmail').value.trim(), password: $('lPass').value });
     busy(e.target, false);
     if (res.error) return formMsg('loginMsg', errText(res.error));
+    state.goProfile = true;
     $('loginDialog').close();
     $('lPass').value = '';
     toast('¡Bienvenido de vuelta!');
@@ -818,6 +862,7 @@
     if (res.error) return formMsg('signupMsg', errText(res.error));
     $('cPass').value = '';
     if (res.data && res.data.session) {
+      state.goProfile = true;
       toast('¡Listo! Ya estás en la red. Completa tu perfil con una foto.');
     } else {
       formMsg('signupMsg', 'Te enviamos un correo a ' + email + '. Abre el enlace para activar tu cuenta y luego entra.', true);

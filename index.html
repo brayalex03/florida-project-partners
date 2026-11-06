@@ -10,24 +10,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body data-view="inicio">
 
 <header class="site-header">
   <div class="wrap header-row">
-    <a href="#inicio" class="brand">
+    <a href="#/" class="brand">
       <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="15" fill="#0E6E6A"/><path d="M17 17 L17 2 A15 15 0 0 1 30 10 Z" fill="#F2A65A"/></svg>
       <span>Florida Project Partners</span>
     </a>
     <nav class="nav">
-      <a href="#miembros">Miembros</a>
-      <a href="#mensajes" class="nav-msg">Mensajes <span id="unreadBadge" class="badge" hidden></span></a>
-      <a href="#publicaciones">Publicaciones</a>
+      <a href="#/miembros" data-nav="miembros">Miembros</a>
+      <a href="#/mensajes" class="nav-msg" data-nav="mensajes">Mensajes <span id="unreadBadge" class="badge" hidden></span></a>
+      <a href="#/publicaciones" data-nav="publicaciones">Publicaciones</a>
       <span id="authOut" class="nav-auth">
         <button type="button" class="btn btn-outline btn-sm" data-action="open-login">Entrar</button>
-        <a href="#crear" class="btn btn-primary btn-sm">Crear perfil</a>
+        <a href="#/crear" class="btn btn-primary btn-sm">Crear perfil</a>
       </span>
       <span id="authIn" class="nav-auth" hidden>
-        <a href="#perfil" class="me-link" data-action="open-my-profile" title="Mi perfil"><span id="meAvatar"></span><span id="meName"></span></a>
+        <a href="#/perfil" class="me-link" data-nav="perfil" title="Mi perfil"><span id="meAvatar"></span><span id="meName"></span></a>
         <button type="button" class="btn btn-ghost" data-action="logout">Salir</button>
       </span>
     </nav>
@@ -45,8 +45,8 @@
     <h1>Hay pastel para todos.</h1>
     <p class="lead">Conectamos oportunidades para que todos crezcan juntos. Contratistas, GCs, prestamistas, realtors, arquitectos, inversionistas y proveedores crean su perfil, muestran su trabajo y encuentran con quién hacer el próximo proyecto.</p>
     <div class="btn-row">
-      <a href="#crear" class="btn btn-primary btn-lg">Crear perfil</a>
-      <a href="#miembros" class="btn btn-outline btn-lg">Encontrar profesionales</a>
+      <a href="#/crear" class="btn btn-primary btn-lg">Crear perfil</a>
+      <a href="#/miembros" class="btn btn-outline btn-lg">Encontrar profesionales</a>
     </div>
     <div class="steps">
       <span><b>1</b>Crea tu perfil</span>
@@ -181,7 +181,7 @@
       <h2>Ya eres parte de la red</h2>
       <p class="create-sub">Completa tu perfil con una foto, tu historia y fotos de tus trabajos. Así te encuentran más fácil.</p>
       <div class="btn-row">
-        <a href="#perfil" class="btn btn-accent btn-lg" data-action="open-my-profile">Ver mi perfil</a>
+        <a href="#/perfil" class="btn btn-accent btn-lg" data-action="open-my-profile">Ver mi perfil</a>
         <button type="button" class="btn btn-outline-light btn-lg" data-action="edit-profile">Editar perfil</button>
       </div>
     </div>
@@ -218,7 +218,7 @@
       <button type="button" class="btn btn-ghost" data-action="close-dialog">Cancelar</button>
       <button type="submit" class="btn btn-primary">Entrar</button>
     </div>
-    <p class="small">¿No tienes cuenta? <a href="#crear" data-action="close-dialog">Crea tu perfil</a></p>
+    <p class="small">¿No tienes cuenta? <a href="#/crear" data-action="close-dialog">Crea tu perfil</a></p>
   </form>
 </dialog>
 
