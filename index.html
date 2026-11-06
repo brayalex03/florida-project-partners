@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=202611060617">
+<link rel="stylesheet" href="css/styles.css?v=202611060619">
 </head>
 <body data-view="inicio">
 
@@ -153,6 +153,14 @@
         <button type="submit" class="btn btn-primary">Publicar</button>
       </div>
     </form>
+    <div id="postLoggedOut" class="card composer">
+      <strong>¿Quieres publicar?</strong>
+      <p class="muted" style="margin:0">Solo los miembros pueden compartir proyectos, trabajos y oportunidades. Entra a tu cuenta o crea tu perfil gratis.</p>
+      <div class="composer-actions">
+        <button type="button" class="btn btn-outline" data-action="open-login">Entrar</button>
+        <a href="#/crear" class="btn btn-primary">Crear perfil</a>
+      </div>
+    </div>
     <div id="feed" class="feed"></div>
   </div>
 </section>
@@ -262,7 +270,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=202611060617"></script>
-<script src="js/app.js?v=202611060617"></script>
+<script src="js/config.js?v=202611060619"></script>
+<script src="js/app.js?v=202611060619"></script>
 </body>
 </html>

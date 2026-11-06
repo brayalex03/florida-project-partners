@@ -321,3 +321,7 @@ body:not([data-view="inicio"]) main { min-height: calc(100vh - 160px); }
 
 /* Mensajes es solo para miembros con sesión iniciada */
 body:not(.logged-in) .nav-msg { display: none; }
+
+/* Publicar es solo para miembros con sesión iniciada */
+body:not(.logged-in) #postForm { display: none; }
+body.logged-in #postLoggedOut { display: none; }
