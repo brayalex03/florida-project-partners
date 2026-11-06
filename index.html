@@ -12,8 +12,6 @@
 </head>
 <body>
 
-<div class="demo-bar">Versión de prueba · datos de ejemplo · todavía no se guarda nada</div>
-
 <header class="site-header">
   <div class="wrap header-row">
     <a href="#inicio" class="brand">
@@ -24,7 +22,14 @@
       <a href="#miembros">Miembros</a>
       <a href="#mensajes" class="nav-msg">Mensajes <span id="unreadBadge" class="badge" hidden></span></a>
       <a href="#publicaciones">Publicaciones</a>
-      <a href="#crear" class="btn btn-primary btn-sm">Crear perfil</a>
+      <span id="authOut" class="nav-auth">
+        <button type="button" class="btn btn-outline btn-sm" data-action="open-login">Entrar</button>
+        <a href="#crear" class="btn btn-primary btn-sm">Crear perfil</a>
+      </span>
+      <span id="authIn" class="nav-auth" hidden>
+        <a href="#perfil" class="me-link" data-action="open-my-profile"><span id="meAvatar"></span><span id="meName"></span></a>
+        <button type="button" class="btn btn-ghost" data-action="logout">Salir</button>
+      </span>
     </nav>
   </div>
 </header>
@@ -88,7 +93,7 @@
   <div class="section-head">
     <div>
       <h2>Descubre miembros</h2>
-      <p class="muted" id="countLabel"></p>
+      <p class="muted" id="countLabel">Cargando miembros…</p>
     </div>
     <div class="filters">
       <label>Profesión<select id="filterProf"></select></label>
@@ -96,17 +101,22 @@
     </div>
   </div>
   <div id="memberGrid" class="member-grid"></div>
-  <div id="emptyMembers" class="empty" hidden>Aún no hay miembros con esa combinación. Prueba otra ciudad o profesión.</div>
+  <div id="emptyMembers" class="empty" hidden></div>
 </section>
 
-<section id="perfil" class="wrap section-tight">
+<section id="perfil" class="wrap section-tight" hidden>
   <div id="profile" class="card profile"></div>
 </section>
 
 <section id="mensajes" class="wrap section">
   <h2>Mensajes</h2>
   <p class="muted sub">Escribe a tus contactos y ve cuándo leyeron tu mensaje.</p>
-  <div class="card messenger">
+  <div id="requests" class="card requests" hidden></div>
+  <div id="msgLoggedOut" class="empty">
+    <p style="margin:0 0 14px">Entra a tu cuenta para ver tus mensajes.</p>
+    <button type="button" class="btn btn-primary" data-action="open-login">Entrar</button>
+  </div>
+  <div id="messenger" class="card messenger" hidden>
     <div class="chat-list">
       <div class="chat-list-head">Chats</div>
       <div id="chatList"></div>
@@ -115,10 +125,10 @@
       <div id="chatHeader" class="chat-header"></div>
       <div id="chatMessages" class="chat-messages"></div>
       <form id="chatForm" class="chat-form">
-        <input id="chatInput" type="text" aria-label="Escribe un mensaje" placeholder="Escribe un mensaje…" autocomplete="off">
+        <input id="chatInput" type="text" aria-label="Escribe un mensaje" placeholder="Escribe un mensaje…" autocomplete="off" maxlength="2000">
         <button type="submit" class="btn btn-primary">Enviar</button>
       </form>
-      <div id="chatEmpty" class="chat-empty" hidden>Elige un chat para empezar.</div>
+      <div id="chatEmpty" class="chat-empty">Elige un chat para empezar.</div>
     </div>
   </div>
 </section>
@@ -131,12 +141,14 @@
       <strong>Nueva publicación</strong>
       <div id="typeChips" class="type-chips" role="group" aria-label="Tipo de publicación"></div>
       <label class="field">Mensaje
-        <textarea id="postText" rows="4" placeholder="Ej.: Busco electricista en Tampa para una remodelación en diciembre."></textarea>
+        <textarea id="postText" rows="4" maxlength="2000" placeholder="Ej.: Busco electricista en Tampa para una remodelación en diciembre."></textarea>
       </label>
+      <div id="postPhotosPreview" class="thumbs"></div>
       <div class="composer-actions">
-        <button type="button" class="btn btn-dashed">
+        <label class="btn btn-dashed file-btn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>Agregar fotos
-        </button>
+          <input id="postPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        </label>
         <button type="submit" class="btn btn-primary">Publicar</button>
       </div>
     </form>
@@ -146,17 +158,32 @@
 
 <section id="crear" class="wrap section">
   <div class="create">
-    <form id="createForm" class="create-form">
+    <form id="signupForm" class="create-form">
       <h2>Crea tu perfil</h2>
-      <p class="create-sub">Cuatro datos y ya estás en la red. Después agregas fotos de tus trabajos y tus colaboraciones.</p>
-      <label class="field dark">Nombre completo<input id="cName" type="text" value="María Pérez" required></label>
+      <p class="create-sub">Unos datos y ya estás en la red. Después agregas fotos de tus trabajos y tus colaboraciones.</p>
+      <label class="field dark">Nombre completo<input id="cName" type="text" required maxlength="80" autocomplete="name"></label>
       <div class="row">
         <label class="field dark">Profesión<select id="cProf"></select></label>
-        <label class="field dark">Ciudad<select id="cCity"></select></label>
+        <label class="field dark">Ciudad<input id="cCity" type="text" required maxlength="60" list="cityList" placeholder="Ej.: Orlando"></label>
       </div>
-      <label class="field dark">Descripción breve<textarea id="cDesc" rows="3">Ayudo a inversionistas a encontrar casas para remodelar en Central Florida.</textarea></label>
+      <label class="field dark">Especialidad (opcional)<input id="cTitle" type="text" maxlength="60" placeholder="Ej.: Electricista, Hard money, Gabinetes"></label>
+      <label class="field dark">Descripción breve<textarea id="cDesc" rows="3" maxlength="160" placeholder="Qué haces y dónde trabajas."></textarea></label>
+      <div class="row">
+        <label class="field dark">Correo<input id="cEmail" type="email" required autocomplete="email"></label>
+        <label class="field dark">Contraseña<input id="cPass" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
+      </div>
+      <p id="signupMsg" class="form-msg" hidden></p>
       <button type="submit" class="btn btn-accent btn-lg">Crear mi perfil</button>
+      <p class="create-sub small-print">¿Ya tienes cuenta? <button type="button" class="link-btn" data-action="open-login">Entra aquí</button></p>
     </form>
+    <div id="signedInBox" class="create-form" hidden>
+      <h2>Ya eres parte de la red</h2>
+      <p class="create-sub">Completa tu perfil con una foto, tu historia y fotos de tus trabajos. Así te encuentran más fácil.</p>
+      <div class="btn-row">
+        <a href="#perfil" class="btn btn-accent btn-lg" data-action="open-my-profile">Ver mi perfil</a>
+        <button type="button" class="btn btn-outline-light btn-lg" data-action="edit-profile">Editar perfil</button>
+      </div>
+    </div>
     <div class="create-preview">
       <span class="preview-label">Así se verá tu perfil</span>
       <article id="preview" class="card member-card"></article>
@@ -168,11 +195,73 @@
 <footer class="site-footer">
   <div class="wrap footer-row">
     <span>Florida Project Partners · Hay pastel para todos.</span>
-    <span>Versión de prueba</span>
+    <span>© 2026</span>
   </div>
 </footer>
 
-<script src="js/data.js"></script>
+<datalist id="cityList">
+  <option value="Miami"></option><option value="Orlando"></option><option value="Tampa"></option><option value="Ocala"></option>
+  <option value="Jacksonville"></option><option value="Gainesville"></option><option value="Fort Lauderdale"></option>
+  <option value="West Palm Beach"></option><option value="Kissimmee"></option><option value="St. Petersburg"></option>
+  <option value="Sarasota"></option><option value="Fort Myers"></option><option value="Tallahassee"></option><option value="Naples"></option>
+</datalist>
+<datalist id="memberNames"></datalist>
+
+<dialog id="loginDialog" class="dialog">
+  <form id="loginForm" class="dialog-body">
+    <h2>Entrar</h2>
+    <label class="field">Correo<input id="lEmail" type="email" required autocomplete="email"></label>
+    <label class="field">Contraseña<input id="lPass" type="password" required autocomplete="current-password"></label>
+    <p id="loginMsg" class="form-msg" hidden></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" data-action="close-dialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Entrar</button>
+    </div>
+    <p class="small">¿No tienes cuenta? <a href="#crear" data-action="close-dialog">Crea tu perfil</a></p>
+  </form>
+</dialog>
+
+<dialog id="editDialog" class="dialog">
+  <form id="editForm" class="dialog-body">
+    <h2>Editar perfil</h2>
+    <div class="avatar-edit">
+      <span id="editAvatar"></span>
+      <label class="btn btn-soft file-btn">Cambiar foto<input id="eAvatar" type="file" accept="image/jpeg,image/png,image/webp"></label>
+    </div>
+    <label class="field">Nombre completo<input id="eName" type="text" required maxlength="80"></label>
+    <div class="row">
+      <label class="field">Profesión<select id="eProf"></select></label>
+      <label class="field">Ciudad<input id="eCity" type="text" required maxlength="60" list="cityList"></label>
+    </div>
+    <label class="field">Especialidad (opcional)<input id="eTitle" type="text" maxlength="60"></label>
+    <label class="field">Descripción breve<input id="eShort" type="text" maxlength="160"></label>
+    <label class="field">Tu historia<textarea id="eBio" rows="5" maxlength="1500" placeholder="Experiencia, licencias, zonas donde trabajas, tipo de proyectos…"></textarea></label>
+    <p id="editMsg" class="form-msg" hidden></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" data-action="close-dialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="photoDialog" class="dialog">
+  <form id="photoForm" class="dialog-body">
+    <h2>Agregar trabajo al portafolio</h2>
+    <label class="field">Foto<input id="pFile" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+    <label class="field">Título<input id="pTitle" type="text" required maxlength="80" placeholder="Ej.: Cocina abierta"></label>
+    <label class="field">Detalle (opcional)<input id="pCaption" type="text" maxlength="120" placeholder="Ej.: Remodelación · Ocala"></label>
+    <p id="photoMsg" class="form-msg" hidden></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" data-action="close-dialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Subir</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -4,35 +4,30 @@
 
 Red profesional para la gente de bienes raíces y construcción en Florida: contratistas, general contractors (GC), prestamistas, realtors, arquitectos, inversionistas y proveedores.
 
-## Estado actual
+## Qué hace
 
-Versión de prueba con datos de ejemplo. Todo funciona en el navegador, pero todavía no se guarda nada:
-
-- Directorio de miembros con filtros por profesión y ciudad
-- Perfiles con portafolio, contactos y colaboraciones
-- Conectar con otros miembros
-- Mensajes estilo Messenger (enviado, visto, escribiendo…)
-- Publicaciones (proyecto, trabajo realizado, oportunidad)
-- Crear perfil con vista previa
-
-Las respuestas en los chats y la aceptación al conectar son simuladas para la demostración.
+- Registro e inicio de sesión (correo y contraseña)
+- Perfiles con foto, historia y portafolio de trabajos con fotos
+- Directorio con filtros por profesión y ciudad
+- Conectar: solicitud, aceptar o ignorar, y lista de contactos en cada perfil
+- Mensajes en tiempo real entre contactos: enviado, visto y escribiendo…
+- Colaboraciones: las confirma la otra persona
+- Publicaciones con hasta 4 fotos
 
 ## Estructura
 
 ```
-index.html      Página
-css/styles.css  Estilos
-js/data.js      Datos de ejemplo (se reemplazarán por Supabase)
-js/app.js       Lógica de la página
+index.html           Página
+css/styles.css       Estilos
+js/config.js         Llaves públicas de Supabase
+js/app.js            Lógica de la página
+supabase/schema.sql  Base de datos, seguridad y fotos (se ejecuta una vez en Supabase)
 ```
 
-No necesita instalar nada: es HTML, CSS y JavaScript. Para verla en tu computadora, abre `index.html` en el navegador.
+## Puesta en marcha
 
-## Próximos pasos
+1. En Supabase > SQL Editor, pega y ejecuta `supabase/schema.sql`.
+2. En Supabase > Authentication > URL Configuration, pon como Site URL la dirección de la página.
+3. Publica los archivos (GitHub Pages o tu hosting).
 
-1. Supabase: cuentas de usuario (registro e inicio de sesión)
-2. Guardar perfiles y fotos de portafolio
-3. Conexiones y mensajes en tiempo real
-4. Colaboraciones confirmadas por ambas personas
-5. Publicaciones guardadas
-6. Mover al hosting propio con dominio
+Nunca pongas la "secret key" o "service_role" en este repositorio.
