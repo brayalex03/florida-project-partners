@@ -96,8 +96,15 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
 -- ¿Están conectadas estas dos personas? (se usa para permitir mensajes)
-create function public.are_connected(a uuid, b uuid)
+-- Vive en un esquema privado que la API no expone.
+create schema if not exists private;
+revoke all on schema private from public;
+grant usage on schema private to authenticated;
+
+create function private.are_connected(a uuid, b uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
   select exists (
     select 1 from public.connections c
@@ -105,8 +112,8 @@ returns boolean language sql stable security definer set search_path = '' as $$
       and ((c.requester_id = a and c.addressee_id = b) or (c.requester_id = b and c.addressee_id = a))
   );
 $$;
-revoke execute on function public.are_connected(uuid, uuid) from public, anon;
-grant execute on function public.are_connected(uuid, uuid) to authenticated;
+revoke execute on function private.are_connected(uuid, uuid) from public, anon;
+grant execute on function private.are_connected(uuid, uuid) to authenticated;
 
 -- ---------- Seguridad (RLS) ----------
 
@@ -143,7 +150,7 @@ create policy "quitar conexion" on public.connections for delete to authenticate
 create policy "ver mis mensajes" on public.messages for select to authenticated
   using ((select auth.uid()) in (sender_id, recipient_id));
 create policy "enviar mensaje" on public.messages for insert to authenticated
-  with check (sender_id = (select auth.uid()) and public.are_connected(sender_id, recipient_id));
+  with check (sender_id = (select auth.uid()) and private.are_connected(sender_id, recipient_id));
 create policy "marcar como leido" on public.messages for update to authenticated
   using (recipient_id = (select auth.uid())) with check (recipient_id = (select auth.uid()));
 
