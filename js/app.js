@@ -86,6 +86,9 @@
     }
     return '<span class="avatar av-' + size + ' hidden-av silhouette" aria-hidden="true">' + SILHOUETTE + '</span>';
   }
+  // Lo que ve cada quien: con sesión, todo; sin sesión, primer nombre y foto oculta
+  function showName(p) { return state.user ? p.name : firstName(p); }
+  function showAvatar(p, size) { return state.user ? avatar(p, size) : hiddenAvatar(p, size); }
   function fmtTime(iso) {
     var d = new Date(iso); var now = new Date();
     if (d.toDateString() === now.toDateString()) {
@@ -274,8 +277,8 @@
       : 'Aún no hay miembros con esa combinación. Prueba otra ciudad o profesión.';
     $('memberGrid').innerHTML = list.map(function (m) {
       return '<article class="card member-card">' +
-        '<div class="member-top">' + avatar(m, 56) +
-        '<div><h3>' + esc(m.name) + '</h3><p class="role">' + esc(roleLabel(m)) + '</p></div></div>' +
+        '<div class="member-top">' + showAvatar(m, 56) +
+        '<div><h3>' + esc(showName(m)) + '</h3><p class="role">' + esc(roleLabel(m)) + '</p></div></div>' +
         '<p class="city">' + PIN + esc(m.city) + ', FL</p>' +
         '<p class="short">' + esc(m.short || 'Miembro de la red.') + '</p>' +
         '<a href="#/perfil" class="btn btn-soft" data-action="open-profile" data-id="' + esc(m.id) + '">Ver perfil</a>' +
@@ -318,7 +321,7 @@
     if (st === 'none') hint = 'Conéctate con ' + first + ' para poder enviarle mensajes.';
     if (st === 'pending-out') hint = first + ' todavía no acepta tu solicitud.';
     if (st === 'pending-in') hint = first + ' quiere conectar contigo.';
-    if (st === 'guest') hint = 'Entra a tu cuenta para conectar con ' + first + '.';
+    if (st === 'guest') hint = 'Crea tu perfil o entra a tu cuenta para ver quién es ' + first + ' y conectar.';
 
     var portfolio = d.portfolio.length ? d.portfolio.map(function (it) {
       return '<figure><img class="photo-img" src="' + esc(photoUrl(it.image_path)) + '" alt="' + esc(it.title) + '" loading="lazy">' +
@@ -329,16 +332,16 @@
 
     var contacts = d.contacts.map(function (id) { return state.byId[id]; }).filter(Boolean);
     var contactsHtml = contacts.map(function (c) {
-      return '<a href="#/perfil" class="contact" data-action="open-profile" data-id="' + esc(c.id) + '">' + avatar(c, 36) +
-        '<span class="txt"><strong>' + esc(c.id === me() ? 'Tú' : c.name) + '</strong><small>' + esc(c.profession) + '</small></span></a>';
+      return '<a href="#/perfil" class="contact" data-action="open-profile" data-id="' + esc(c.id) + '">' + showAvatar(c, 36) +
+        '<span class="txt"><strong>' + esc(c.id === me() ? 'Tú' : showName(c)) + '</strong><small>' + esc(c.profession) + '</small></span></a>';
     }).join('') || '<p class="small">Todavía sin contactos.</p>';
 
     var collabsHtml = d.collabs.map(function (c) {
       var member = c.collaborator_id ? state.byId[c.collaborator_id] : null;
-      var name = member ? member.name : c.collaborator_name;
+      var name = member ? showName(member) : (state.user ? c.collaborator_name : firstName({ name: c.collaborator_name }));
       var tag = c.confirmed ? '' : (c.collaborator_id ? '<span class="tag-pending">Pendiente</span>' : '<span class="tag-muted">Sin cuenta</span>');
       var canDel = isMe || (c.collaborator_id && c.collaborator_id === me());
-      return '<span class="collab">' + avatar(member || { name: name }, 28) +
+      return '<span class="collab">' + (member ? showAvatar(member, 28) : avatar({ name: name }, 28)) +
         '<span>' + (member ? '<a href="#/perfil" class="collab-name" data-action="open-profile" data-id="' + esc(member.id) + '">' + esc(name) + '</a>' : '<strong>' + esc(name) + '</strong>') +
         (member ? ' <span class="role-txt">· ' + esc(member.profession) + '</span>' : '') + '</span>' + tag +
         (canDel ? '<button type="button" class="x-btn" aria-label="Quitar colaboración con ' + esc(name) + '" data-action="del-collab" data-id="' + esc(c.id) + '">×</button>' : '') +
@@ -349,8 +352,8 @@
       '<div class="profile-cover"></div>' +
       '<div class="profile-body">' +
         '<div class="profile-head">' +
-          '<div class="profile-id">' + avatar(p, 112).replace('class="avatar av-112', 'class="avatar profile-avatar') +
-            '<div><h2>' + esc(p.name) + '</h2><p><strong class="teal">' + esc(roleLabel(p)) + '</strong> · ' + esc(p.city) + ', FL</p></div>' +
+          '<div class="profile-id">' + showAvatar(p, 112).replace('class="avatar av-112', 'class="avatar profile-avatar') +
+            '<div><h2>' + esc(showName(p)) + '</h2><p><strong class="teal">' + esc(roleLabel(p)) + '</strong> · ' + esc(p.city) + ', FL</p></div>' +
           '</div>' +
           '<div class="profile-actions">' + actions + '</div>' +
         '</div>' +
@@ -564,8 +567,8 @@
       var isMine = post.author_id === me();
       var connected = !isMine && state.user && statusWith(post.author_id) === 'connected';
       return '<article class="card post">' +
-        '<div class="post-head"><div class="post-author">' + (guest ? hiddenAvatar(a, 46) : avatar(a, 46)) +
-          '<div><p class="name">' + esc(guest ? firstName(a) : a.name) + '</p><p class="meta">' + esc(meta) + '</p></div></div>' +
+        '<div class="post-head"><div class="post-author">' + showAvatar(a, 46) +
+          '<div><p class="name">' + esc(showName(a)) + '</p><p class="meta">' + esc(meta) + '</p></div></div>' +
           '<span class="type-badge" style="background:' + tc.bg + ';color:' + tc.fg + '">' + esc(post.type) + '</span></div>' +
         '<p class="post-text">' + esc(post.body) + '</p>' + photos +
         '<div class="post-actions">' +
@@ -1003,7 +1006,9 @@
   (async function start() {
     await Promise.all([loadProfiles(), loadPosts()]);
     var s = await sb.auth.getSession();
-    await handleUser(s.data && s.data.session ? s.data.session.user : null);
+    var sessionUser = s.data && s.data.session ? s.data.session.user : null;
+    await handleUser(sessionUser);
     renderAll();
+    if (!sessionUser) route(); // visitantes: abrir la página del enlace (#/miembros, #/perfil/…)
   })();
 })();
