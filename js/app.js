@@ -78,6 +78,14 @@
     var t = p && p.id ? tintFor(p.id) : { bg: '#16232B', fg: '#FFFFFF' };
     return '<span class="avatar av-' + size + '" aria-hidden="true" style="background:' + t.bg + ';color:' + t.fg + '">' + esc(initials(p ? p.name : '?')) + '</span>';
   }
+  // Para visitantes: foto de perfil oculta (borrosa o silueta)
+  var SILHOUETTE = '<svg viewBox="0 0 24 24" width="60%" height="60%" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.4 4.2-7 8.5-7s7.7 2.6 8.5 7z"/></svg>';
+  function hiddenAvatar(p, size) {
+    if (p && p.avatar_path) {
+      return '<span class="avatar av-' + size + ' hidden-av"><img src="' + esc(photoUrl(p.avatar_path)) + '" alt="" loading="lazy"></span>';
+    }
+    return '<span class="avatar av-' + size + ' hidden-av silhouette" aria-hidden="true">' + SILHOUETTE + '</span>';
+  }
   function fmtTime(iso) {
     var d = new Date(iso); var now = new Date();
     if (d.toDateString() === now.toDateString()) {
@@ -547,6 +555,7 @@
     }
     $('feed').innerHTML = state.posts.map(function (post) {
       var a = state.byId[post.author_id] || { id: post.author_id, name: 'Miembro', profession: '', city: '' };
+      var guest = !state.user;
       var tc = TYPE_COLORS[post.type] || TYPE_COLORS['Proyecto'];
       var meta = [roleLabel(a), a.city, relTime(post.created_at)].filter(Boolean).join(' · ');
       var photos = post.photo_paths && post.photo_paths.length ? '<div class="post-photos">' + post.photo_paths.map(function (ph) {
@@ -555,12 +564,13 @@
       var isMine = post.author_id === me();
       var connected = !isMine && state.user && statusWith(post.author_id) === 'connected';
       return '<article class="card post">' +
-        '<div class="post-head"><div class="post-author">' + avatar(a, 46) +
-          '<div><p class="name">' + esc(a.name) + '</p><p class="meta">' + esc(meta) + '</p></div></div>' +
+        '<div class="post-head"><div class="post-author">' + (guest ? hiddenAvatar(a, 46) : avatar(a, 46)) +
+          '<div><p class="name">' + esc(guest ? firstName(a) : a.name) + '</p><p class="meta">' + esc(meta) + '</p></div></div>' +
           '<span class="type-badge" style="background:' + tc.bg + ';color:' + tc.fg + '">' + esc(post.type) + '</span></div>' +
         '<p class="post-text">' + esc(post.body) + '</p>' + photos +
         '<div class="post-actions">' +
-          (isMine ? '<button type="button" class="btn btn-ghost" data-action="del-post" data-id="' + esc(post.id) + '">Borrar</button>'
+          (guest ? '<a href="#/crear" class="btn btn-soft btn-sm">Crea tu perfil para ver quién es</a>'
+            : isMine ? '<button type="button" class="btn btn-ghost" data-action="del-post" data-id="' + esc(post.id) + '">Borrar</button>'
             : '<a href="#/perfil" class="btn btn-soft btn-sm" data-action="open-profile" data-id="' + esc(a.id) + '">Ver perfil</a>' +
               (connected ? '<a href="#/mensajes" class="btn btn-ghost" data-action="open-chat" data-id="' + esc(a.id) + '">Enviar mensaje</a>' : '')) +
         '</div></article>';
