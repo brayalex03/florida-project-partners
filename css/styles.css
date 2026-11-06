@@ -329,3 +329,7 @@ body.logged-in #postLoggedOut { display: none; }
 /* Visitantes: foto oculta en publicaciones */
 .hidden-av { overflow: hidden; background: #E3DED3; color: #A39C8E; }
 .hidden-av img { width: 100%; height: 100%; object-fit: cover; filter: blur(7px) grayscale(0.3); transform: scale(1.25); }
+
+/* El nombre ya aparece en la lista de chats de la izquierda */
+#chatHeader { display: none !important; }
+.chat-messages { border-top-right-radius: 24px; }
