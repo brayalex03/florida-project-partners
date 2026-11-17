@@ -360,6 +360,7 @@
         '</span>';
     }).join('') || '<p class="small">Aún no hay colaboraciones.</p>';
 
+    var keepText = $('ppText') ? $('ppText').value : '';
     $('profile').innerHTML =
       '<div class="profile-cover"></div>' +
       '<div class="profile-body">' +
@@ -384,12 +385,16 @@
             '<button type="submit" class="btn btn-dark">+ Agregar</button></form>' +
             '<p class="small" style="margin-top:10px">Si la persona es miembro, la colaboración queda pendiente hasta que la confirme.</p>' : '') +
         '</div>' +
-        '<div class="profile-posts"><div class="block-head"><h3>Publicaciones <span>· ' + d.posts.length + '</span></h3>' +
-          (isMe ? '<a href="#/publicaciones" class="btn btn-outline btn-sm" data-action="new-post">+ Nueva publicación</a>' : '') + '</div>' +
-          (d.posts.length ? '<div class="feed">' + d.posts.map(function (x) { return postCard(x, true); }).join('') + '</div>'
-            : '<p class="small">' + (isMe ? 'Todavía no has publicado. Comparte un proyecto, un trabajo terminado o una oportunidad.' : esc(first) + ' todavía no ha publicado.') + '</p>') +
+        '<div class="profile-posts"><div class="block-head"><h3>Publicaciones <span>· ' + d.posts.length + '</span></h3></div>' +
+          '<div class="feed-layout">' +
+            (isMe ? profileComposer() : '') +
+            '<div class="feed">' + (d.posts.length ? d.posts.map(function (x) { return postCard(x, true); }).join('')
+              : '<div class="empty">' + (isMe ? 'Todavía no has publicado. Comparte un proyecto, un trabajo terminado o una oportunidad.' : esc(first) + ' todavía no ha publicado.') + '</div>') +
+            '</div>' +
+          '</div>' +
         '</div>' +
       '</div>';
+    if ($('ppText') && keepText) $('ppText').value = keepText;
   }
 
   async function openProfile(id) {
@@ -577,15 +582,34 @@
 
   // ---------- Render: publicaciones ----------
   function renderTypes() {
-    $('typeChips').innerHTML = TYPES.map(function (t) {
+    $('typeChips').innerHTML = typeChipsHtml();
+  }
+
+  function thumbsHtml() {
+    return state.postFiles.map(function (f, i) {
+      return '<span class="thumb"><img src="' + esc(f.url) + '" alt=""><button type="button" class="x-btn" aria-label="Quitar foto" data-action="drop-post-photo" data-index="' + i + '">×</button></span>';
+    }).join('');
+  }
+  function renderPostPreview() {
+    $('postPhotosPreview').innerHTML = thumbsHtml();
+    if ($('ppPreview')) $('ppPreview').innerHTML = thumbsHtml();
+  }
+  function typeChipsHtml() {
+    return TYPES.map(function (t) {
       return '<button type="button" class="type-chip" data-action="pick-type" data-type="' + esc(t) + '" aria-pressed="' + (t === state.postType) + '">' + esc(t) + '</button>';
     }).join('');
   }
-
-  function renderPostPreview() {
-    $('postPhotosPreview').innerHTML = state.postFiles.map(function (f, i) {
-      return '<span class="thumb"><img src="' + esc(f.url) + '" alt=""><button type="button" class="x-btn" aria-label="Quitar foto" data-action="drop-post-photo" data-index="' + i + '">×</button></span>';
-    }).join('');
+  function profileComposer() {
+    return '<form id="ppForm" class="card composer">' +
+      '<strong>Nueva publicación</strong>' +
+      '<div class="type-chips" role="group" aria-label="Tipo de publicación">' + typeChipsHtml() + '</div>' +
+      '<label class="field">Mensaje<textarea id="ppText" rows="4" maxlength="2000" placeholder="Ej.: Busco electricista en Tampa para una remodelación en diciembre."></textarea></label>' +
+      '<div id="ppPreview" class="thumbs">' + thumbsHtml() + '</div>' +
+      '<div class="composer-actions">' +
+        '<label class="btn btn-dashed file-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>Agregar fotos' +
+        '<input id="ppPhotos" class="post-photos-input" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>' +
+        '<button type="submit" class="btn btn-primary">Publicar</button>' +
+      '</div></form>';
   }
 
   function renderPosts() {
@@ -824,7 +848,10 @@
         go('#/publicaciones');
         setTimeout(function () { $('postText').focus(); }, 250);
         break;
-      case 'pick-type': state.postType = el.getAttribute('data-type'); renderTypes(); break;
+      case 'pick-type':
+        state.postType = el.getAttribute('data-type');
+        document.querySelectorAll('.type-chip').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-type') === state.postType)); });
+        break;
       case 'drop-post-photo': {
         var i = Number(el.getAttribute('data-index'));
         URL.revokeObjectURL(state.postFiles[i].url);
@@ -986,22 +1013,23 @@
     }
   });
 
-  $('postPhotos').addEventListener('change', function () {
-    var files = Array.from(this.files || []);
+  function addPostFiles(input) {
+    var files = Array.from(input.files || []);
     files.forEach(function (f) {
       if (state.postFiles.length < 4) state.postFiles.push({ file: f, url: URL.createObjectURL(f) });
     });
     if (files.length && state.postFiles.length >= 4) toast('Máximo 4 fotos por publicación.');
-    this.value = '';
+    input.value = '';
     renderPostPreview();
-  });
+  }
+  $('postPhotos').addEventListener('change', function () { addPostFiles(this); });
+  document.addEventListener('change', function (e) { if (e.target.id === 'ppPhotos') addPostFiles(e.target); });
 
-  $('postForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
+  async function submitPost(form, textEl) {
     if (!state.user) return openLogin();
-    var text = $('postText').value.trim();
+    var text = textEl.value.trim();
     if (!text) return toast('Escribe algo para publicar.');
-    busy(e.target, true);
+    busy(form, true);
     try {
       var paths = [];
       for (var i = 0; i < state.postFiles.length; i++) paths.push(await uploadPhoto(state.postFiles[i].file, 'posts'));
@@ -1009,16 +1037,22 @@
       if (res.error) throw res.error;
       state.posts.unshift(res.data);
       if (state.sel === me() && state.selData && state.selData.posts) state.selData.posts.unshift(res.data);
-      $('postText').value = '';
+      textEl.value = '';
       state.postFiles.forEach(function (f) { URL.revokeObjectURL(f.url); });
       state.postFiles = [];
-      renderPostPreview(); renderPosts();
+      renderPosts(); renderProfile(); renderPostPreview();
       toast('Publicado.');
     } catch (err) {
       toast(errText(err));
     } finally {
-      busy(e.target, false);
+      if (document.body.contains(form)) busy(form, false);
     }
+  }
+  $('postForm').addEventListener('submit', function (e) { e.preventDefault(); submitPost(e.target, $('postText')); });
+  document.addEventListener('submit', function (e) {
+    if (e.target.id !== 'ppForm') return;
+    e.preventDefault();
+    submitPost(e.target, $('ppText'));
   });
 
   $('chatForm').addEventListener('submit', async function (e) {
