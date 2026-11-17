@@ -360,3 +360,6 @@ textarea::placeholder { line-height: 1.45; }
 
 /* Chat: profesión debajo del nombre */
 .chat-row-role { font-size: 13px; font-weight: 600; color: var(--teal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -1px; }
+.chat-row-role { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.chat-row-role .role-txt { color: var(--teal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chat-row-role .city-txt { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-weight: 500; white-space: nowrap; flex-shrink: 0; }

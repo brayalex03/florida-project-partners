@@ -489,7 +489,8 @@
         avatar(p, 44) +
         '<span class="chat-row-body">' +
           '<span class="chat-row-line"><strong>' + esc(p.name) + '</strong><span class="time">' + esc(x.last ? fmtTime(x.last.created_at) : '') + '</span></span>' +
-          '<span class="chat-row-role">' + esc(roleLabel(p) + ' · ' + p.city) + '</span>' +
+          '<span class="chat-row-role"><span class="role-txt">' + esc(roleLabel(p)) + '</span>' +
+            '<span class="city-txt">' + PIN.replace(/width="16" height="16"/, 'width="13" height="13"') + esc(p.city) + '</span></span>' +
           '<span class="chat-row-line"><span class="preview">' + esc(preview) + '</span>' +
           (unread ? '<span class="badge">' + unread + '</span>' : '') + '</span>' +
         '</span></button>';
