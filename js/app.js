@@ -299,8 +299,7 @@
 
     var actions;
     if (st === 'me') {
-      actions = '<button type="button" class="btn btn-primary" data-action="edit-profile">Editar perfil</button>' +
-        '<button type="button" class="btn btn-outline" data-action="add-photo">Agregar foto</button>';
+      actions = '<button type="button" class="btn btn-primary" data-action="edit-profile">Editar perfil</button>';
     } else if (st === 'guest') {
       actions = '<button type="button" class="btn btn-primary" data-action="open-login">Conectar</button>';
     } else if (st === 'none') {
@@ -328,7 +327,7 @@
         '<figcaption>' + esc(it.title) + (it.caption ? '<span>' + esc(it.caption) + '</span>' : '') +
         (isMe ? '<button type="button" class="link-btn danger" data-action="del-photo" data-id="' + esc(it.id) + '">Quitar</button>' : '') +
         '</figcaption></figure>';
-    }).join('') : '<div class="empty-tile">' + HOUSE + '<span>' + (isMe ? 'Sube fotos de tus trabajos con "Agregar foto".' : 'Todavía no hay fotos.') + '</span></div>';
+    }).join('') : '<div class="empty-tile">' + HOUSE + '<span>' + (isMe ? 'Sube fotos de tus trabajos con "+ Agregar foto".' : 'Todavía no hay fotos.') + '</span></div>';
 
     var contacts = d.contacts.map(function (id) { return state.byId[id]; }).filter(Boolean);
     var contactsHtml = contacts.map(function (c) {
@@ -359,7 +358,8 @@
         '</div>' +
         (p.bio || p.short ? '<p class="bio">' + esc(p.bio || p.short) + '</p>' : (isMe ? '<p class="bio muted">Cuéntale a la red quién eres: toca "Editar perfil".</p>' : '')) +
         (hint ? '<p class="hint">' + esc(hint) + '</p>' : '') +
-        '<div><div class="block-head"><h3>Portafolio</h3></div><div class="portfolio">' + portfolio + '</div></div>' +
+        '<div><div class="block-head"><h3>Portafolio</h3>' +
+          (isMe ? '<button type="button" class="btn btn-outline btn-sm" data-action="add-photo">+ Agregar foto</button>' : '') + '</div><div class="portfolio">' + portfolio + '</div></div>' +
         '<div><div class="block-head"><h3>Contactos <span>· ' + contacts.length + (contacts.length === 1 ? ' contacto' : ' contactos') + '</span></h3>' +
           '<span>Personas conectadas con ' + esc(isMe ? 'tu perfil' : first) + '</span></div>' +
           '<div class="contacts">' + contactsHtml + '</div></div>' +
