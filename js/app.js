@@ -275,6 +275,10 @@
     var total = unread + reqs;
     $('unreadBadge').hidden = total === 0;
     $('unreadBadge').textContent = total;
+    state.notifTotal = total;
+    // El mismo número en el botón "Mensajes" de tu perfil
+    var pb = $('profileMsgBadge');
+    if (pb) { pb.hidden = total === 0; pb.textContent = total; }
   }
 
   // ---------- Render: directorio ----------
@@ -312,7 +316,9 @@
 
     var actions;
     if (st === 'me') {
-      actions = '<button type="button" class="btn btn-primary" data-action="edit-profile">Editar perfil</button>';
+      actions = '<button type="button" class="btn btn-primary" data-action="edit-profile">Editar perfil</button>' +
+        '<a href="#/mensajes" class="btn btn-outline">Mensajes' +
+        '<span id="profileMsgBadge" class="badge"' + (state.notifTotal ? '' : ' hidden') + '>' + (state.notifTotal || '') + '</span></a>';
     } else if (st === 'guest') {
       actions = '<button type="button" class="btn btn-primary" data-action="open-login">Conectar</button>';
     } else if (st === 'none') {
