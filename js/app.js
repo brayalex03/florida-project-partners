@@ -234,13 +234,15 @@
     var r = await Promise.all([
       sb.from('portfolio_items').select('*').eq('profile_id', id).order('created_at', { ascending: false }),
       sb.from('collaborations').select('*').eq('profile_id', id).order('created_at', { ascending: true }),
-      sb.from('connections').select('*').eq('status', 'accepted').or('requester_id.eq.' + id + ',addressee_id.eq.' + id)
+      sb.from('connections').select('*').eq('status', 'accepted').or('requester_id.eq.' + id + ',addressee_id.eq.' + id),
+      sb.from('posts').select('*').eq('author_id', id).order('created_at', { ascending: false }).limit(30)
     ]);
     if (state.sel !== id) return;
     state.selData = {
       portfolio: r[0].data || [],
       collabs: r[1].data || [],
-      contacts: (r[2].data || []).map(function (c) { return c.requester_id === id ? c.addressee_id : c.requester_id; })
+      contacts: (r[2].data || []).map(function (c) { return c.requester_id === id ? c.addressee_id : c.requester_id; }),
+      posts: r[3].data || []
     };
   }
 
@@ -303,7 +305,7 @@
     var p = state.sel ? state.byId[state.sel] : null;
     section.hidden = !p;
     if (!p) return;
-    var d = state.selData || { portfolio: [], collabs: [], contacts: [] };
+    var d = state.selData || { portfolio: [], collabs: [], contacts: [], posts: [] };
     var isMe = p.id === me();
     var st = isMe ? 'me' : (state.user ? statusWith(p.id) : 'guest');
     var first = firstName(p);
@@ -381,6 +383,11 @@
             '<label class="field">Agregar colaborador<input type="text" id="collabInput" list="memberNames" maxlength="80" placeholder="Nombre de la persona" autocomplete="off"></label>' +
             '<button type="submit" class="btn btn-dark">+ Agregar</button></form>' +
             '<p class="small" style="margin-top:10px">Si la persona es miembro, la colaboración queda pendiente hasta que la confirme.</p>' : '') +
+        '</div>' +
+        '<div class="profile-posts"><div class="block-head"><h3>Publicaciones <span>· ' + d.posts.length + '</span></h3>' +
+          (isMe ? '<a href="#/publicaciones" class="btn btn-outline btn-sm" data-action="new-post">+ Nueva publicación</a>' : '') + '</div>' +
+          (d.posts.length ? '<div class="feed">' + d.posts.map(function (x) { return postCard(x, true); }).join('') + '</div>'
+            : '<p class="small">' + (isMe ? 'Todavía no has publicado. Comparte un proyecto, un trabajo terminado o una oportunidad.' : esc(first) + ' todavía no ha publicado.') + '</p>') +
         '</div>' +
       '</div>';
   }
@@ -586,7 +593,10 @@
       $('feed').innerHTML = '<div class="empty">Todavía no hay publicaciones. Comparte tu primer proyecto u oportunidad.</div>';
       return;
     }
-    $('feed').innerHTML = state.posts.map(function (post) {
+    $('feed').innerHTML = state.posts.map(postCard).join('');
+  }
+
+  function postCard(post, inProfile) {
       var a = state.byId[post.author_id] || { id: post.author_id, name: 'Miembro', profession: '', city: '' };
       var guest = !state.user;
       var tc = TYPE_COLORS[post.type] || TYPE_COLORS['Proyecto'];
@@ -604,10 +614,9 @@
         '<div class="post-actions">' +
           (guest ? '<a href="#/crear" class="btn btn-soft btn-sm">Crea tu perfil para ver quién es</a>'
             : isMine ? '<button type="button" class="btn btn-ghost" data-action="del-post" data-id="' + esc(post.id) + '">Borrar</button>'
-            : '<a href="#/perfil" class="btn btn-soft btn-sm" data-action="open-profile" data-id="' + esc(a.id) + '">Ver perfil</a>' +
+            : (inProfile === true ? '' : '<a href="#/perfil" class="btn btn-soft btn-sm" data-action="open-profile" data-id="' + esc(a.id) + '">Ver perfil</a>') +
               (connected ? '<a href="#/mensajes" class="btn btn-ghost" data-action="open-chat" data-id="' + esc(a.id) + '">Enviar mensaje</a>' : '')) +
         '</div></article>';
-    }).join('');
   }
 
   // ---------- Render: crear perfil ----------
@@ -810,6 +819,11 @@
         if (state.chatFromList) { state.chatFromList = false; history.back(); }
         else location.replace('#/mensajes');
         break;
+      case 'new-post':
+        e.preventDefault();
+        go('#/publicaciones');
+        setTimeout(function () { $('postText').focus(); }, 250);
+        break;
       case 'pick-type': state.postType = el.getAttribute('data-type'); renderTypes(); break;
       case 'drop-post-photo': {
         var i = Number(el.getAttribute('data-index'));
@@ -846,12 +860,13 @@
       }
       case 'del-post': {
         if (!confirmAction('¿Borrar esta publicación?')) return;
-        var post = state.posts.filter(function (x) { return x.id === id; })[0];
+        var post = state.posts.concat((state.selData && state.selData.posts) || []).filter(function (x) { return x.id === id; })[0];
         var r4 = await sb.from('posts').delete().eq('id', id);
         if (r4.error) return toast(errText(r4.error));
         if (post && post.photo_paths.length) sb.storage.from(C.PHOTO_BUCKET).remove(post.photo_paths);
         state.posts = state.posts.filter(function (x) { return x.id !== id; });
-        renderPosts();
+        if (state.selData && state.selData.posts) state.selData.posts = state.selData.posts.filter(function (x) { return x.id !== id; });
+        renderPosts(); renderProfile();
         break;
       }
     }
@@ -993,6 +1008,7 @@
       var res = await sb.from('posts').insert({ author_id: me(), type: state.postType, body: text, photo_paths: paths }).select().single();
       if (res.error) throw res.error;
       state.posts.unshift(res.data);
+      if (state.sel === me() && state.selData && state.selData.posts) state.selData.posts.unshift(res.data);
       $('postText').value = '';
       state.postFiles.forEach(function (f) { URL.revokeObjectURL(f.url); });
       state.postFiles = [];

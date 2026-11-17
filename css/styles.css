@@ -363,3 +363,7 @@ textarea::placeholder { line-height: 1.45; }
 .chat-row-role { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .chat-row-role .role-txt { color: var(--teal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .chat-row-role .city-txt { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+
+/* Publicaciones dentro del perfil */
+.profile-posts .feed { flex: none; max-width: 720px; }
+.profile-posts .post { box-shadow: none; }
