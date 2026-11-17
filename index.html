@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=202611170607">
+<link rel="stylesheet" href="css/styles.css?v=202611170629">
 </head>
 <body data-view="inicio">
 
@@ -22,6 +22,7 @@
       <a href="#/miembros" data-nav="miembros">Miembros</a>
       <a href="#/mensajes" class="nav-msg" data-nav="mensajes">Mensajes <span id="unreadBadge" class="badge" hidden></span></a>
       <a href="#/publicaciones" data-nav="publicaciones">Publicaciones</a>
+      <a href="#/bolsa" data-nav="bolsa">Bolsa de trabajo</a>
       <span id="authOut" class="nav-auth">
         <button type="button" class="btn btn-outline btn-sm" data-action="open-login">Entrar</button>
         <a href="#/crear" class="btn btn-primary btn-sm">Crear perfil</a>
@@ -90,7 +91,12 @@
 
 <section class="wrap roles">
   <span class="roles-label">En la red:</span>
-  <span class="chip">General contractors</span><span class="chip">Contratistas</span><span class="chip">Prestamistas</span><span class="chip">Realtors</span><span class="chip">Arquitectos</span><span class="chip">Inversionistas</span><span class="chip">Proveedores</span>
+  <span class="chip">General contractors</span><span class="chip">Contratistas</span><span class="chip">Prestamistas</span><span class="chip">Realtors</span><span class="chip">Arquitectos</span><span class="chip">Inversionistas</span><span class="chip">Proveedores</span><span class="chip">Trabajadores de construcción</span>
+  <a href="#/bolsa" class="job-teaser">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>
+    <span><strong>Bolsa de trabajo</strong> · ¿Trabajas en construcción o buscas gente para tu obra? Mira las ofertas</span>
+    <span aria-hidden="true">→</span>
+  </a>
 </section>
 
 <section id="miembros" class="wrap section">
@@ -165,17 +171,53 @@
   </div>
 </section>
 
+<section id="bolsa" class="wrap section">
+  <div class="section-head">
+    <div>
+      <h2>Bolsa de trabajo</h2>
+      <p class="muted" id="jobsSub">Ofertas de trabajo en construcción en Florida.</p>
+    </div>
+    <button type="button" id="newOfferBtn" class="btn btn-primary" data-action="new-offer" hidden>+ Publicar oferta</button>
+  </div>
+  <div class="tabs" id="jobTabs" hidden>
+    <a href="#/bolsa" class="tab" data-tab="ofertas">Ofertas de trabajo</a>
+    <a href="#/bolsa/trabajadores" class="tab" data-tab="trabajadores">Trabajadores</a>
+  </div>
+  <div id="jobBanner"></div>
+  <div id="offersPane">
+    <div class="filters job-filters">
+      <label>Oficio<select id="jobTrade"></select></label>
+      <label>Ciudad<select id="jobCity"></select></label>
+    </div>
+    <div id="jobList" class="job-list"></div>
+  </div>
+  <div id="workersPane" hidden>
+    <div class="filters job-filters">
+      <label>Oficio<select id="wkTrade"></select></label>
+      <label>Ciudad<select id="wkCity"></select></label>
+      <label class="check"><input type="checkbox" id="wkAvail" checked> Solo disponibles</label>
+    </div>
+    <p class="muted" id="wkCount"></p>
+    <div id="workerGrid" class="member-grid"></div>
+  </div>
+</section>
+
 <section id="crear" class="wrap section">
   <div class="create">
     <form id="signupForm" class="create-form">
       <h2>Crea tu perfil</h2>
       <p class="create-sub">Unos datos y ya estás en la red. Después agregas fotos de tus trabajos y tus colaboraciones.</p>
+      <div class="kind-pick" role="radiogroup" aria-label="Tipo de cuenta">
+        <label class="kind"><input type="radio" name="cKind" value="pro" checked><span><strong>Soy profesional</strong><small>GC, contratista, realtor, prestamista, arquitecto…</small></span></label>
+        <label class="kind"><input type="radio" name="cKind" value="worker"><span><strong>Soy trabajador de construcción</strong><small>Busco trabajo en obras</small></span></label>
+      </div>
       <label class="field dark">Nombre completo<input id="cName" type="text" required maxlength="80" autocomplete="name"></label>
       <div class="row">
-        <label class="field dark">Profesión<select id="cProf"></select></label>
+        <label class="field dark" id="cProfField">Profesión<select id="cProf"></select></label>
+        <label class="field dark" id="cTradeField" hidden>Oficio<select id="cTrade"></select></label>
         <label class="field dark">Ciudad<input id="cCity" type="text" required maxlength="60" list="cityList" placeholder="Ej.: Orlando"></label>
       </div>
-      <label class="field dark">Especialidad (opcional)<input id="cTitle" type="text" maxlength="60" placeholder="Ej.: Electricista, Hard money, Gabinetes"></label>
+      <label class="field dark" id="cTitleField">Especialidad (opcional)<input id="cTitle" type="text" maxlength="60" placeholder="Ej.: Electricista, Hard money, Gabinetes"></label>
       <label class="field dark">Sobre mí<textarea id="cDesc" rows="4" maxlength="1500"></textarea><span class="field-help">Cuenta qué haces, dónde trabajas y con quién te gustaría colaborar.</span></label>
       <div class="row">
         <label class="field dark">Correo<input id="cEmail" type="email" required autocomplete="email"></label>
@@ -239,15 +281,37 @@
     </div>
     <label class="field">Nombre completo<input id="eName" type="text" required maxlength="80"></label>
     <div class="row">
-      <label class="field">Profesión<select id="eProf"></select></label>
+      <label class="field" id="eProfField">Profesión<select id="eProf"></select></label>
+      <label class="field" id="eTradeField" hidden>Oficio<select id="eTrade"></select></label>
       <label class="field">Ciudad<input id="eCity" type="text" required maxlength="60" list="cityList"></label>
     </div>
-    <label class="field">Especialidad (opcional)<input id="eTitle" type="text" maxlength="60"></label>
+    <label class="field" id="eTitleField">Especialidad (opcional)<input id="eTitle" type="text" maxlength="60"></label>
     <label class="field">Sobre mí<textarea id="eBio" rows="6" maxlength="1500"></textarea><span class="field-help">Cuenta qué haces, dónde trabajas y con quién te gustaría colaborar.</span></label>
     <p id="editMsg" class="form-msg" hidden></p>
     <div class="dialog-actions">
       <button type="button" class="btn btn-ghost" data-action="close-dialog">Cancelar</button>
       <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="offerDialog" class="dialog">
+  <form id="offerForm" class="dialog-body">
+    <h2>Publicar oferta de trabajo</h2>
+    <div class="row">
+      <label class="field">Oficio<select id="oTrade" required></select></label>
+      <label class="field">¿Cuántas personas?<input id="oPeople" type="number" min="1" max="50" value="1" required></label>
+    </div>
+    <div class="row">
+      <label class="field">Ciudad<input id="oCity" type="text" required maxlength="60" list="cityList" placeholder="Ej.: Ocala"></label>
+      <label class="field">Empieza<input id="oStart" type="date"></label>
+    </div>
+    <label class="field">Duración (opcional)<input id="oDuration" type="text" maxlength="60" placeholder="Ej.: 2 semanas, 3 días, proyecto completo"></label>
+    <label class="field">Detalles<textarea id="oDesc" rows="4" maxlength="1000" placeholder="Ej.: Remodelación de cocina y 2 baños. Colgar y terminar drywall nivel 4. Traer herramientas básicas."></textarea></label>
+    <p id="offerMsg" class="form-msg" hidden></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" data-action="close-dialog">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Publicar oferta</button>
     </div>
   </form>
 </dialog>
@@ -269,7 +333,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=202611170607"></script>
-<script src="js/app.js?v=202611170607"></script>
+<script src="js/config.js?v=202611170629"></script>
+<script src="js/app.js?v=202611170629"></script>
 </body>
 </html>

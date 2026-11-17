@@ -13,6 +13,7 @@ Red profesional para la gente de bienes raíces y construcción en Florida: cont
 - Mensajes en tiempo real entre contactos: enviado, visto y escribiendo…
 - Colaboraciones: las confirma la otra persona
 - Publicaciones con hasta 4 fotos
+- Bolsa de trabajo: trabajadores de construcción con oficio y disponibilidad; ofertas de GCs, contratistas e inversionistas; postulaciones con "Me interesa" y contacto directo
 
 ## Estructura
 
@@ -21,12 +22,13 @@ index.html           Página
 css/styles.css       Estilos
 js/config.js         Llaves públicas de Supabase
 js/app.js            Lógica de la página
-supabase/schema.sql  Base de datos, seguridad y fotos (se ejecuta una vez en Supabase)
+supabase/schema.sql              Base de datos, seguridad y fotos
+supabase/002_bolsa_de_trabajo.sql  Trabajadores, ofertas y postulaciones
 ```
 
 ## Puesta en marcha
 
-1. En Supabase > SQL Editor, pega y ejecuta `supabase/schema.sql`.
+1. En Supabase > SQL Editor, ejecuta en orden `supabase/schema.sql` y `supabase/002_bolsa_de_trabajo.sql` (ya aplicados en el proyecto actual).
 2. En Supabase > Authentication > URL Configuration, pon como Site URL la dirección de la página.
 3. Publica los archivos (GitHub Pages o tu hosting).
 

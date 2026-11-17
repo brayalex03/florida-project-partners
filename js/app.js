@@ -4,6 +4,11 @@
   var C = window.FPP_CONFIG;
   var PROFS = ['General Contractor', 'Contratista', 'Prestamista', 'Realtor', 'Arquitecto', 'Inversionista', 'Proveedor'];
   var TYPES = ['Proyecto', 'Trabajo realizado', 'Oportunidad'];
+  var WORKER = 'Trabajador de construcción';
+  var EMPLOYERS = ['General Contractor', 'Contratista', 'Inversionista'];
+  var TRADES = ['Drywall', 'Pintura', 'Carpintería', 'Concreto', 'Techos', 'Plomería', 'Electricidad',
+    'Pisos y azulejos', 'Demolición', 'Landscaping', 'Ayudante general', 'Otro'];
+  var AVAIL_DAYS = 14; // "Disponible" se apaga solo si no se confirma en 14 días
   var TYPE_COLORS = {
     'Proyecto': { bg: '#DDF0EE', fg: '#0B5653' },
     'Trabajo realizado': { bg: '#FBE6D8', fg: '#8A3B12' },
@@ -44,7 +49,16 @@
     typingOut: null,
     typingOutId: null,
     lastTypingSent: 0,
-    goProfile: false
+    goProfile: false,
+    jobs: [],
+    apps: [],
+    openApps: {},
+    jobTab: 'ofertas',
+    jobTrade: 'Todos',
+    jobCity: 'Todas',
+    wkTrade: 'Todos',
+    wkCity: 'Todas',
+    wkAvail: true
   };
 
   // ---------- Utilidades ----------
@@ -65,7 +79,20 @@
   }
   function me() { return state.user ? state.user.id : null; }
   function myProfile() { return me() ? state.byId[me()] : null; }
-  function roleLabel(p) { return p.profession + (p.title ? ' · ' + p.title : ''); }
+  function roleLabel(p) {
+    if (p.profession === WORKER) return 'Trabajador · ' + (p.trade || 'Construcción');
+    return p.profession + (p.title ? ' · ' + p.title : '');
+  }
+  function isWorker(p) { return !!p && p.profession === WORKER; }
+  function amWorker() { return isWorker(myProfile()); }
+  function amEmployer() { var p = myProfile(); return !!p && EMPLOYERS.indexOf(p.profession) >= 0; }
+  function isAvailable(p) {
+    return !!p && !!p.available && !!p.available_since &&
+      (Date.now() - new Date(p.available_since).getTime()) < AVAIL_DAYS * 86400000;
+  }
+  function availPill(p) {
+    return isAvailable(p) ? '<span class="avail on">Disponible</span>' : '<span class="avail">No disponible</span>';
+  }
   function firstName(p) { return String(p.name || '').split(' ')[0]; }
   function photoUrl(path) {
     return C.SUPABASE_URL + '/storage/v1/object/public/' + C.PHOTO_BUCKET + '/' +
@@ -97,6 +124,7 @@
     'Realtor': 'Ej.: Realtor bilingüe en Orlando y Kissimmee, enfocada en inversionistas. Encuentro casas para remodelar y las vendo cuando están listas.',
     'Arquitecto': 'Ej.: Arquitecta con estudio propio en Tampa. Diseño casas y dúplex, preparo planos para permisos y acompaño la obra.',
     'Inversionista': 'Ej.: Compro 5 a 10 casas al año para remodelar en Ocala y Gainesville. Busco GCs confiables y realtors que conozcan la zona.',
+    'Trabajador de construcción': 'Ej.: 8 años en drywall y pintura. Tengo carro y herramientas propias. Trabajo en Ocala y alrededores, puedo empezar de inmediato.',
     'Proveedor': 'Ej.: Distribuidor de gabinetes, cuarzo y pisos en Central Florida. Entrego en obra y doy precio especial a contratistas.'
   };
   function setAboutExample(id, profession) { $(id).placeholder = ABOUT_EXAMPLES[profession] || ''; }
@@ -222,6 +250,16 @@
     if (!res.error) state.msgs = res.data || [];
   }
 
+  async function loadJobs() {
+    var res = await sb.from('job_offers').select('*').order('created_at', { ascending: false }).limit(200);
+    if (!res.error) state.jobs = res.data || [];
+  }
+  async function loadApps() {
+    if (!me()) { state.apps = []; return; }
+    var res = await sb.from('job_applications').select('*').order('created_at', { ascending: true });
+    if (!res.error) state.apps = res.data || [];
+  }
+
   async function loadCollabRequests() {
     if (!me()) { state.collabReqs = []; return; }
     var res = await sb.from('collaborations').select('*').eq('collaborator_id', me()).eq('confirmed', false);
@@ -284,12 +322,12 @@
   // ---------- Render: directorio ----------
   function renderMembers() {
     var list = state.profiles.filter(function (m) {
-      return (state.prof === 'Todas' || m.profession === state.prof) && (state.city === 'Todas' || m.city === state.city);
+      return !isWorker(m) && (state.prof === 'Todas' || m.profession === state.prof) && (state.city === 'Todas' || m.city === state.city);
     });
     $('countLabel').textContent = list.length + (list.length === 1 ? ' profesional' : ' profesionales') + ' en Florida';
     var empty = $('emptyMembers');
     empty.hidden = list.length > 0;
-    empty.textContent = state.profiles.length === 0
+    empty.textContent = state.profiles.filter(function (m) { return !isWorker(m); }).length === 0
       ? 'Todavía no hay miembros. ¡Sé el primero en crear tu perfil!'
       : 'Aún no hay miembros con esa combinación. Prueba otra ciudad o profesión.';
     $('memberGrid').innerHTML = list.map(function (m) {
@@ -313,17 +351,22 @@
     var isMe = p.id === me();
     var st = isMe ? 'me' : (state.user ? statusWith(p.id) : 'guest');
     var first = firstName(p);
+    var worker = isWorker(p);
+    var viewerWorker = amWorker();
 
     var actions;
     if (st === 'me') {
       actions = '<button type="button" class="btn btn-primary" data-action="edit-profile">Editar perfil</button>' +
+        (worker ? '<button type="button" class="btn btn-outline" data-action="toggle-available">' + (isAvailable(p) ? 'Ya no estoy disponible' : 'Estoy disponible') + '</button>' : '') +
         '<a href="#/mensajes" class="btn btn-outline">Mensajes' +
         '<span id="profileMsgBadge" class="badge"' + (state.notifTotal ? '' : ' hidden') + '>' + (state.notifTotal || '') + '</span></a>';
     } else if (st === 'guest') {
       actions = '<button type="button" class="btn btn-primary" data-action="open-login">Conectar</button>';
+    } else if (st === 'none' && viewerWorker) {
+      actions = '';
     } else if (st === 'none') {
-      actions = '<button type="button" class="btn btn-primary" data-action="connect" data-id="' + esc(p.id) + '">Conectar</button>' +
-        '<button type="button" class="btn btn-disabled" disabled title="Conéctate para enviar mensajes">Enviar mensaje</button>';
+      actions = '<button type="button" class="btn btn-primary" data-action="connect" data-id="' + esc(p.id) + '">' + (worker ? 'Contactar' : 'Conectar') + '</button>' +
+        (worker ? '' : '<button type="button" class="btn btn-disabled" disabled title="Conéctate para enviar mensajes">Enviar mensaje</button>');
     } else if (st === 'pending-out') {
       actions = '<button type="button" class="btn btn-pending" disabled>Solicitud enviada</button>';
     } else if (st === 'pending-in') {
@@ -336,7 +379,9 @@
     }
 
     var hint = '';
-    if (st === 'none') hint = 'Conéctate con ' + first + ' para poder enviarle mensajes.';
+    if (st === 'none') hint = viewerWorker ? 'Postúlate a sus ofertas en la Bolsa de trabajo para que te contacte.'
+      : worker ? 'Toca "Contactar": cuando ' + first + ' acepte, podrán hablar por Mensajes.'
+      : 'Conéctate con ' + first + ' para poder enviarle mensajes.';
     if (st === 'pending-out') hint = first + ' todavía no acepta tu solicitud.';
     if (st === 'pending-in') hint = first + ' quiere conectar contigo.';
     if (st === 'guest') hint = 'Crea tu perfil o entra a tu cuenta para ver quién es ' + first + ' y conectar.';
@@ -372,33 +417,33 @@
       '<div class="profile-body">' +
         '<div class="profile-head">' +
           '<div class="profile-id">' + showAvatar(p, 112).replace('class="avatar av-112', 'class="avatar profile-avatar') +
-            '<div><h2>' + esc(showName(p)) + '</h2><p><strong class="teal">' + esc(roleLabel(p)) + '</strong> · ' + esc(p.city) + ', FL</p></div>' +
+            '<div><h2>' + esc(showName(p)) + '</h2><p><strong class="teal">' + esc(roleLabel(p)) + '</strong> · ' + esc(p.city) + ', FL' + (worker ? ' ' + availPill(p) : '') + '</p></div>' +
           '</div>' +
           '<div class="profile-actions">' + actions + '</div>' +
         '</div>' +
         (p.bio || p.short ? '<p class="bio">' + esc(p.bio || p.short) + '</p>' : (isMe ? '<p class="bio muted">Cuéntale a la red quién eres: toca "Editar perfil".</p>' : '')) +
         (hint ? '<p class="hint">' + esc(hint) + '</p>' : '') +
-        '<div><div class="block-head"><h3>Portafolio</h3>' +
+        '<div><div class="block-head"><h3>' + (worker ? 'Fotos de mis trabajos' : 'Portafolio') + '</h3>' +
           (isMe ? '<button type="button" class="btn btn-outline btn-sm" data-action="add-photo">+ Agregar foto</button>' : '') + '</div><div class="portfolio">' + portfolio + '</div></div>' +
-        '<div><div class="block-head"><h3>Contactos <span>· ' + contacts.length + (contacts.length === 1 ? ' contacto' : ' contactos') + '</span></h3>' +
+        (worker || viewerWorker ? '' : '<div><div class="block-head"><h3>Contactos <span>· ' + contacts.length + (contacts.length === 1 ? ' contacto' : ' contactos') + '</span></h3>' +
           '<span>Personas conectadas con ' + esc(isMe ? 'tu perfil' : first) + '</span></div>' +
-          '<div class="contacts">' + contactsHtml + '</div></div>' +
+          '<div class="contacts">' + contactsHtml + '</div></div>') +
         '<div class="collab-box">' +
-          '<div class="block-head"><h3>Colaboraciones</h3><span>Personas con quienes ' + esc(isMe ? 'has' : first + ' ha') + ' trabajado</span></div>' +
+          '<div class="block-head"><h3>' + (worker ? 'Trabajé con' : 'Colaboraciones') + '</h3><span>' + (worker ? 'GCs y contratistas que lo confirmaron' : 'Personas con quienes ' + esc(isMe ? 'has' : first + ' ha') + ' trabajado') + '</span></div>' +
           '<div class="collabs">' + collabsHtml + '</div>' +
           (isMe ? '<form class="collab-form" id="collabForm">' +
             '<label class="field">Agregar colaborador<input type="text" id="collabInput" list="memberNames" maxlength="80" placeholder="Nombre de la persona" autocomplete="off"></label>' +
             '<button type="submit" class="btn btn-dark">+ Agregar</button></form>' +
             '<p class="small" style="margin-top:10px">Si la persona es miembro, la colaboración queda pendiente hasta que la confirme.</p>' : '') +
         '</div>' +
-        '<div class="profile-posts"><div class="block-head"><h3>Publicaciones <span>· ' + d.posts.length + '</span></h3></div>' +
+        (worker || viewerWorker ? '' : '<div class="profile-posts"><div class="block-head"><h3>Publicaciones <span>· ' + d.posts.length + '</span></h3></div>' +
           '<div class="feed-layout">' +
             (isMe ? profileComposer() : '') +
             '<div class="feed">' + (d.posts.length ? d.posts.map(function (x) { return postCard(x, true); }).join('')
               : '<div class="empty">' + (isMe ? 'Todavía no has publicado. Comparte un proyecto, un trabajo terminado o una oportunidad.' : esc(first) + ' todavía no ha publicado.') + '</div>') +
             '</div>' +
           '</div>' +
-        '</div>' +
+        '</div>') +
       '</div>';
     if ($('ppText') && keepText) $('ppText').value = keepText;
   }
@@ -413,7 +458,7 @@
   }
 
   // ---------- Páginas (#/perfil, #/miembros, #/mensajes, #/publicaciones, #/crear) ----------
-  var VIEWS = ['inicio', 'perfil', 'miembros', 'mensajes', 'publicaciones', 'crear'];
+  var VIEWS = ['inicio', 'perfil', 'miembros', 'mensajes', 'publicaciones', 'crear', 'bolsa'];
   function parseRoute() {
     var parts = location.hash.replace(/^#\/?/, '').split('/');
     var view = parts[0] || 'inicio';
@@ -442,6 +487,12 @@
       return;
     }
     if (r.view === 'crear' && state.user) { location.replace('#/perfil'); return; }
+    if (r.view === 'crear') setKind(r.id === 'trabajador' ? 'worker' : kindChosen());
+    if (amWorker() && (r.view === 'miembros' || r.view === 'publicaciones')) { location.replace('#/bolsa'); return; }
+    if (r.view === 'bolsa') {
+      state.jobTab = r.id === 'trabajadores' ? 'trabajadores' : 'ofertas';
+      renderJobs();
+    }
     if (r.view === 'mensajes' && !state.user) { location.replace('#/'); return; }
     if (r.view === 'mensajes') {
       // Con conversación abierta (#/mensajes/<id>) o en la lista de chats
@@ -468,7 +519,7 @@
       inc.map(function (c) {
         var p = state.byId[c.requester_id];
         return '<div class="req">' + avatar(p, 44) +
-          '<span class="req-text"><a href="#/perfil" data-action="open-profile" data-id="' + esc(p.id) + '">' + esc(p.name) + '</a> quiere conectar contigo<small>' + esc(roleLabel(p) + ' · ' + p.city) + '</small></span>' +
+          '<span class="req-text"><a href="#/perfil" data-action="open-profile" data-id="' + esc(p.id) + '">' + esc(p.name) + '</a> ' + (amWorker() ? 'quiere contactarte por trabajo' : 'quiere conectar contigo') + '<small>' + esc(roleLabel(p) + ' · ' + p.city) + '</small></span>' +
           '<span class="req-actions"><button type="button" class="btn btn-primary btn-sm" data-action="accept-conn" data-id="' + esc(c.id) + '">Aceptar</button>' +
           '<button type="button" class="btn btn-ghost" data-action="reject-conn" data-id="' + esc(c.id) + '">Ignorar</button></span></div>';
       }).join('') +
@@ -657,8 +708,9 @@
     var view = p || {
       id: null,
       name: $('cName').value.trim() || 'Tu nombre',
-      profession: $('cProf').value,
-      title: $('cTitle').value.trim(),
+      profession: kindChosen() === 'worker' ? WORKER : $('cProf').value,
+      trade: $('cTrade').value,
+      title: kindChosen() === 'worker' ? '' : $('cTitle').value.trim(),
       city: $('cCity').value.trim() || 'Tu ciudad',
       bio: $('cDesc').value.trim() || 'Cuéntale a la red qué haces y dónde trabajas.'
     };
@@ -671,6 +723,7 @@
 
   function renderAll() {
     document.body.classList.toggle('logged-in', !!state.user);
+    document.body.classList.toggle('is-worker', amWorker());
     renderHeader();
     renderMembers();
     renderProfile();
@@ -678,6 +731,7 @@
     renderMessenger();
     renderPosts();
     renderCreate();
+    renderJobs();
   }
 
   // ---------- Tiempo real ----------
@@ -700,6 +754,10 @@
         await loadConnections();
         renderHeader(); renderRequests(); renderMessenger(); renderPosts();
         if (state.sel) { await loadSelected(); renderProfile(); }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_applications' }, async function () {
+        await Promise.all([loadApps(), loadProfiles()]);
+        renderJobs();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'collaborations' }, async function () {
         await loadCollabRequests();
@@ -745,11 +803,12 @@
         await new Promise(function (r) { setTimeout(r, 1200); });
         await loadProfiles();
       }
-      await Promise.all([loadConnections(), loadMessages(), loadCollabRequests()]);
+      await Promise.all([loadConnections(), loadMessages(), loadCollabRequests(), loadApps(), loadJobs()]);
       subscribe();
     } else {
       unsubscribe();
-      state.conns = []; state.msgs = []; state.collabReqs = [];
+      state.conns = []; state.msgs = []; state.collabReqs = []; state.apps = []; state.openApps = {};
+      await Promise.all([loadProfiles(), loadJobs()]);
     }
     if (state.sel) await loadSelected();
     renderAll();
@@ -775,10 +834,211 @@
   function openLogin() { formMsg('loginMsg', ''); openDialog('loginDialog'); setTimeout(function () { $('lEmail').focus(); }, 50); }
   function openEdit() {
     var p = myProfile(); if (!p) return;
-    $('eName').value = p.name; $('eProf').value = p.profession; $('eCity').value = p.city;
+    $('eName').value = p.name; $('eProf').value = isWorker(p) ? PROFS[0] : p.profession; $('eCity').value = p.city;
+    $('eProfField').hidden = isWorker(p); $('eTitleField').hidden = isWorker(p); $('eTradeField').hidden = !isWorker(p);
+    $('eTrade').value = p.trade || 'Ayudante general';
     $('eTitle').value = p.title || ''; $('eBio').value = p.bio || p.short || ''; setAboutExample('eBio', p.profession);
     $('eAvatar').value = ''; $('editAvatar').innerHTML = avatar(p, 56);
     formMsg('editMsg', ''); openDialog('editDialog');
+  }
+
+  // ---------- Bolsa de trabajo ----------
+  var ICON_CAL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+  var ICON_CLOCK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  var ICON_PEOPLE = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c2 .7 3.2 2.4 3.5 5.2"/></svg>';
+  var ICON_SMALL_PIN = PIN.replace(/width="16" height="16"/, 'width="15" height="15"');
+
+  function optionsAll(list, allLabel) {
+    return [allLabel].concat(list).map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join('');
+  }
+  function fillCityFilter(id, cities, current) {
+    var sel = $(id);
+    sel.innerHTML = optionsAll(cities, 'Todas');
+    sel.value = cities.indexOf(current) >= 0 ? current : 'Todas';
+    return sel.value;
+  }
+  function fmtStart(d) {
+    if (!d) return '';
+    var p = String(d).split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  // Registro: profesional o trabajador
+  function kindChosen() {
+    var r = document.querySelector('input[name="cKind"]:checked');
+    return r ? r.value : 'pro';
+  }
+  function setKind(kind) {
+    var r = document.querySelector('input[name="cKind"][value="' + kind + '"]');
+    if (r) r.checked = true;
+    var w = kind === 'worker';
+    $('cProfField').hidden = w; $('cTitleField').hidden = w; $('cTradeField').hidden = !w;
+    setAboutExample('cDesc', w ? WORKER : $('cProf').value);
+    renderCreate();
+  }
+
+  function renderJobs() {
+    if (!$('jobList')) return;
+    var employer = amEmployer();
+    var worker = amWorker();
+    var guest = !state.user;
+    var tab = employer && state.jobTab === 'trabajadores' ? 'trabajadores' : 'ofertas';
+    $('newOfferBtn').hidden = !employer;
+    $('jobTabs').hidden = !employer;
+    document.querySelectorAll('#jobTabs .tab').forEach(function (t) {
+      if (t.getAttribute('data-tab') === tab) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+    });
+    $('offersPane').hidden = tab !== 'ofertas';
+    $('workersPane').hidden = tab !== 'trabajadores';
+    $('jobsSub').textContent = employer ? 'Publica lo que necesitas y encuentra gente para tu obra.'
+      : worker ? 'Postúlate a las ofertas de GCs y contratistas en Florida.'
+      : 'Ofertas de trabajo en construcción en Florida.';
+
+    var banner = '';
+    if (guest) {
+      banner = '<div class="banner dark"><p><strong>¿Buscas trabajo en construcción?</strong> Crea tu perfil de trabajador gratis para postularte a las ofertas.</p>' +
+        '<a href="#/crear/trabajador" class="btn btn-accent">Crear perfil de trabajador</a></div>';
+    } else if (worker) {
+      var mp = myProfile();
+      banner = isAvailable(mp)
+        ? '<div class="banner"><p><span class="avail on">Disponible</span> Los GCs y contratistas te ven como disponible para trabajar.</p><button type="button" class="btn btn-ghost" data-action="toggle-available">Ya no estoy disponible</button></div>'
+        : '<div class="banner"><p><span class="avail">No disponible</span> Marca que estás disponible para que los GCs y contratistas te encuentren.</p><button type="button" class="btn btn-primary" data-action="toggle-available">Estoy disponible</button></div>';
+    }
+    $('jobBanner').innerHTML = banner;
+
+    if (tab === 'ofertas') renderOffers(); else renderWorkers();
+  }
+
+  function renderOffers() {
+    var employer = amEmployer();
+    var cities = Array.from(new Set(state.jobs.map(function (o) { return o.city; }))).sort();
+    state.jobCity = fillCityFilter('jobCity', cities, state.jobCity);
+    $('jobTrade').value = state.jobTrade;
+    var list = state.jobs.filter(function (o) {
+      return (state.jobTrade === 'Todos' || o.trade === state.jobTrade) && (state.jobCity === 'Todas' || o.city === state.jobCity);
+    });
+    var mine = list.filter(function (o) { return o.employer_id === me(); });
+    var others = list.filter(function (o) { return o.employer_id !== me() && o.status === 'abierta'; });
+    var html = '';
+    if (mine.length) {
+      html += '<h3 class="job-group-title">Mis ofertas</h3>' + mine.map(offerCard).join('');
+      if (others.length) html += '<h3 class="job-group-title">Otras ofertas</h3>';
+    }
+    html += others.map(offerCard).join('');
+    if (!mine.length && !others.length) {
+      html = '<div class="empty">' + (state.jobs.length ? 'No hay ofertas con ese filtro. Prueba otro oficio o ciudad.'
+        : employer ? 'Todavía no hay ofertas. Publica la primera con "+ Publicar oferta".'
+        : 'Todavía no hay ofertas de trabajo. Vuelve pronto.') + '</div>';
+    }
+    $('jobList').innerHTML = html;
+  }
+
+  function offerCard(o) {
+    var emp = state.byId[o.employer_id] || { id: o.employer_id, name: 'Empresa', profession: '', city: '' };
+    var mine = o.employer_id === me();
+    var guest = !state.user;
+    var worker = amWorker();
+    var title = o.people > 1 ? 'Se buscan ' + o.people + ' personas' : 'Se busca 1 persona';
+    var meta = '<span>' + ICON_SMALL_PIN + esc(o.city) + '</span>' +
+      (o.start_date ? '<span>' + ICON_CAL + 'Empieza ' + esc(fmtStart(o.start_date)) + '</span>' : '') +
+      (o.duration ? '<span>' + ICON_CLOCK + esc(o.duration) + '</span>' : '') +
+      '<span>' + ICON_PEOPLE + o.people + (o.people > 1 ? ' personas' : ' persona') + '</span>';
+    var apps = state.apps.filter(function (a) { return a.offer_id === o.id; });
+    var applied = worker && apps.some(function (a) { return a.worker_id === me(); });
+
+    var actions;
+    if (mine) {
+      actions = '<button type="button" class="btn btn-soft btn-sm" data-action="toggle-apps" data-id="' + esc(o.id) + '">' +
+          (state.openApps[o.id] ? 'Ocultar interesados' : 'Ver interesados') + ' (' + apps.length + ')</button>' +
+        (o.status === 'abierta'
+          ? '<button type="button" class="btn btn-ghost" data-action="offer-status" data-id="' + esc(o.id) + '" data-status="cubierta">Marcar como cubierta</button>'
+          : '<button type="button" class="btn btn-ghost" data-action="offer-status" data-id="' + esc(o.id) + '" data-status="abierta">Volver a abrir</button>') +
+        '<button type="button" class="btn btn-ghost" data-action="del-offer" data-id="' + esc(o.id) + '">Borrar</button>';
+    } else if (guest) {
+      actions = '<a href="#/crear/trabajador" class="btn btn-primary btn-sm">Crea tu perfil para postularte</a>';
+    } else if (worker) {
+      actions = applied
+        ? '<span class="applied">' + CHECK + 'Te postulaste</span><button type="button" class="btn btn-ghost" data-action="withdraw" data-id="' + esc(o.id) + '">Retirar</button>'
+        : '<button type="button" class="btn btn-primary btn-sm" data-action="apply" data-id="' + esc(o.id) + '">Me interesa</button>';
+    } else {
+      actions = state.byId[emp.id] ? '<a href="#/perfil" class="btn btn-soft btn-sm" data-action="open-profile" data-id="' + esc(emp.id) + '">Ver quién publica</a>' : '';
+    }
+
+    var applicants = '';
+    if (mine && state.openApps[o.id]) {
+      applicants = '<div class="applicants">' + (apps.length ? apps.map(function (a) {
+        var w = state.byId[a.worker_id];
+        if (!w) return '';
+        var connected = statusWith(w.id) === 'connected';
+        return '<div class="applicant">' + avatar(w, 44) +
+          '<span class="who"><strong>' + esc(w.name) + '</strong><small>' + esc(roleLabel(w) + ' · ' + w.city) + '</small></span>' +
+          availPill(w) +
+          '<span class="acts"><a href="#/perfil" class="btn btn-ghost" data-action="open-profile" data-id="' + esc(w.id) + '">Ver perfil</a>' +
+          (connected
+            ? '<a href="#/mensajes" class="btn btn-primary btn-sm" data-action="open-chat" data-id="' + esc(w.id) + '">Enviar mensaje</a>'
+            : '<button type="button" class="btn btn-primary btn-sm" data-action="contact-app" data-id="' + esc(a.id) + '" data-worker="' + esc(w.id) + '">Contactar</button>') +
+          '</span></div>';
+      }).join('') : '<p class="small">Todavía no hay interesados. Te avisamos aquí cuando alguien se postule.</p>') + '</div>';
+    }
+
+    return '<article class="card job' + (o.status === 'cubierta' ? ' covered' : '') + '">' +
+      '<div class="job-top"><span class="trade-badge">' + esc(o.trade) + '</span>' +
+        '<span class="job-when">' + (o.status === 'cubierta' ? '<span class="status-badge">Cubierta</span> ' : '') + esc(relTime(o.created_at)) + '</span></div>' +
+      '<h3>' + esc(title) + ' · ' + esc(o.trade) + '</h3>' +
+      '<p class="job-meta">' + meta + '</p>' +
+      (o.description ? '<p class="job-desc">' + esc(o.description) + '</p>' : '') +
+      '<div class="job-employer">' + showAvatar(emp, 36) + '<span><strong>' + esc(mine ? 'Tú' : showName(emp)) + '</strong>' +
+        '<small>' + esc([roleLabel(emp), emp.city].filter(Boolean).join(' · ')) + '</small></span></div>' +
+      '<div class="job-actions">' + actions + '</div>' + applicants +
+      '</article>';
+  }
+
+  function renderWorkers() {
+    var all = state.profiles.filter(isWorker);
+    var cities = Array.from(new Set(all.map(function (w) { return w.city; }))).sort();
+    state.wkCity = fillCityFilter('wkCity', cities, state.wkCity);
+    $('wkTrade').value = state.wkTrade;
+    $('wkAvail').checked = state.wkAvail;
+    var list = all.filter(function (w) {
+      return (state.wkTrade === 'Todos' || w.trade === state.wkTrade) &&
+        (state.wkCity === 'Todas' || w.city === state.wkCity) &&
+        (!state.wkAvail || isAvailable(w));
+    }).sort(function (a, b) { return (isAvailable(b) ? 1 : 0) - (isAvailable(a) ? 1 : 0); });
+    $('wkCount').textContent = list.length + (list.length === 1 ? ' trabajador' : ' trabajadores') + (state.wkAvail ? ' disponibles' : '');
+    $('workerGrid').innerHTML = list.length ? list.map(function (w) {
+      var st = statusWith(w.id);
+      return '<article class="card member-card">' +
+        '<div class="member-top">' + avatar(w, 56) +
+        '<div><h3>' + esc(w.name) + '</h3><p class="role">' + esc(w.trade || 'Construcción') + '</p></div></div>' +
+        '<p class="city">' + PIN + esc(w.city) + ', FL ' + availPill(w) + '</p>' +
+        '<p class="short clamp">' + esc(w.bio || w.short || 'Trabajador de construcción.') + '</p>' +
+        '<div class="btn-row">' +
+          '<a href="#/perfil" class="btn btn-soft" data-action="open-profile" data-id="' + esc(w.id) + '">Ver perfil</a>' +
+          (st === 'connected' ? '<a href="#/mensajes" class="btn btn-primary" data-action="open-chat" data-id="' + esc(w.id) + '">Mensaje</a>'
+            : st === 'pending-out' ? '<button type="button" class="btn btn-pending" disabled>Solicitud enviada</button>'
+            : '<button type="button" class="btn btn-primary" data-action="connect" data-id="' + esc(w.id) + '">Contactar</button>') +
+        '</div></article>';
+    }).join('') : '<div class="empty">' + (all.length ? 'No hay trabajadores con ese filtro. Prueba quitar "Solo disponibles" u otra ciudad.'
+      : 'Todavía no hay trabajadores registrados. Comparte la página de la Bolsa de trabajo con la gente que conoces.') + '</div>';
+  }
+
+  async function toggleAvailable() {
+    var p = myProfile(); if (!p) return;
+    var on = !isAvailable(p);
+    var res = await sb.from('profiles').update({ available: on, available_since: on ? new Date().toISOString() : null }).eq('id', me());
+    if (res.error) return toast(errText(res.error));
+    await loadProfiles();
+    renderAll();
+    toast(on ? 'Listo: apareces como disponible por ' + AVAIL_DAYS + ' días.' : 'Listo: ya no apareces como disponible.');
+  }
+
+  function openOfferDialog() {
+    $('offerForm').reset();
+    var p = myProfile();
+    if (p) $('oCity').value = p.city;
+    $('oPeople').value = 1;
+    formMsg('offerMsg', '');
+    openDialog('offerDialog');
   }
 
   // ---------- Acciones ----------
@@ -849,6 +1109,49 @@
         if (state.chatFromList) { state.chatFromList = false; history.back(); }
         else location.replace('#/mensajes');
         break;
+      case 'new-offer': openOfferDialog(); break;
+      case 'toggle-available': el.disabled = true; await toggleAvailable(); break;
+      case 'toggle-apps': state.openApps[id] = !state.openApps[id]; renderJobs(); break;
+      case 'apply': {
+        el.disabled = true;
+        var ra = await sb.from('job_applications').insert({ offer_id: id, worker_id: me() }).select().single();
+        if (ra.error) { el.disabled = false; return toast(errText(ra.error)); }
+        state.apps.push(ra.data);
+        renderJobs();
+        toast('Te postulaste. Si les interesa, te escribirán por Mensajes.');
+        break;
+      }
+      case 'withdraw': {
+        var rw = await sb.from('job_applications').delete().eq('offer_id', id).eq('worker_id', me());
+        if (rw.error) return toast(errText(rw.error));
+        state.apps = state.apps.filter(function (a) { return !(a.offer_id === id && a.worker_id === me()); });
+        renderJobs();
+        break;
+      }
+      case 'offer-status': {
+        var rs = await sb.from('job_offers').update({ status: el.getAttribute('data-status') }).eq('id', id);
+        if (rs.error) return toast(errText(rs.error));
+        await loadJobs(); renderJobs();
+        toast(el.getAttribute('data-status') === 'cubierta' ? 'Oferta marcada como cubierta: ya no aparece para los trabajadores.' : 'La oferta está abierta otra vez.');
+        break;
+      }
+      case 'del-offer': {
+        if (!confirmAction('¿Borrar esta oferta de trabajo?')) return;
+        var rd = await sb.from('job_offers').delete().eq('id', id);
+        if (rd.error) return toast(errText(rd.error));
+        state.jobs = state.jobs.filter(function (o) { return o.id !== id; });
+        renderJobs();
+        break;
+      }
+      case 'contact-app': {
+        el.disabled = true;
+        var rc = await sb.rpc('contact_applicant', { p_application: id });
+        if (rc.error) { el.disabled = false; return toast(errText(rc.error)); }
+        await loadConnections();
+        renderAll();
+        go('#/mensajes/' + el.getAttribute('data-worker'));
+        break;
+      }
       case 'new-post':
         e.preventDefault();
         go('#/publicaciones');
@@ -948,9 +1251,10 @@
         emailRedirectTo: location.origin + location.pathname,
         data: {
           name: $('cName').value.trim(),
-          profession: $('cProf').value,
+          profession: kindChosen() === 'worker' ? WORKER : $('cProf').value,
+          trade: kindChosen() === 'worker' ? $('cTrade').value : null,
           city: $('cCity').value.trim(),
-          title: $('cTitle').value.trim(),
+          title: kindChosen() === 'worker' ? '' : $('cTitle').value.trim(),
           short: $('cDesc').value.trim()
         }
       }
@@ -971,11 +1275,12 @@
     busy(e.target, true);
     try {
       var upd = {
-        name: $('eName').value.trim(), profession: $('eProf').value, city: $('eCity').value.trim(),
-        title: $('eTitle').value.trim() || null,
+        name: $('eName').value.trim(), city: $('eCity').value.trim(),
         bio: $('eBio').value.trim() || null,
         short: $('eBio').value.trim().slice(0, 160) || null
       };
+      if (amWorker()) { upd.trade = $('eTrade').value; }
+      else { upd.profession = $('eProf').value; upd.title = $('eTitle').value.trim() || null; }
       var file = $('eAvatar').files[0];
       var oldAvatar = myProfile() && myProfile().avatar_path;
       if (file) upd.avatar_path = await uploadPhoto(file, 'avatar');
@@ -1083,6 +1388,37 @@
     $(id).addEventListener('change', renderCreate);
   });
 
+  // Bolsa de trabajo: filtros, registro y nueva oferta
+  $('jobTrade').addEventListener('change', function (e) { state.jobTrade = e.target.value; renderOffers(); });
+  $('jobCity').addEventListener('change', function (e) { state.jobCity = e.target.value; renderOffers(); });
+  $('wkTrade').addEventListener('change', function (e) { state.wkTrade = e.target.value; renderWorkers(); });
+  $('wkCity').addEventListener('change', function (e) { state.wkCity = e.target.value; renderWorkers(); });
+  $('wkAvail').addEventListener('change', function (e) { state.wkAvail = e.target.checked; renderWorkers(); });
+  document.querySelectorAll('input[name="cKind"]').forEach(function (r) {
+    r.addEventListener('change', function () { setKind(this.value); });
+  });
+  $('cTrade').addEventListener('change', renderCreate);
+  $('offerForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    busy(e.target, true);
+    var res = await sb.from('job_offers').insert({
+      employer_id: me(),
+      trade: $('oTrade').value,
+      city: $('oCity').value.trim(),
+      people: Math.max(1, Math.min(50, parseInt($('oPeople').value, 10) || 1)),
+      start_date: $('oStart').value || null,
+      duration: $('oDuration').value.trim() || null,
+      description: $('oDesc').value.trim() || null
+    });
+    busy(e.target, false);
+    if (res.error) return formMsg('offerMsg', errText(res.error));
+    $('offerDialog').close();
+    state.jobTab = 'ofertas';
+    await loadJobs();
+    if (parseRoute().view !== 'bolsa' || parseRoute().id) go('#/bolsa'); else renderJobs();
+    toast('Oferta publicada. Los trabajadores ya la pueden ver.');
+  });
+
   $('filterProf').addEventListener('change', function (e) { state.prof = e.target.value; renderMembers(); });
   $('filterCity').addEventListener('change', function (e) { state.city = e.target.value; renderMembers(); });
 
@@ -1096,11 +1432,16 @@
   $('cProf').innerHTML = options(PROFS, false);
   $('eProf').innerHTML = options(PROFS, false);
   setAboutExample('cDesc', $('cProf').value);
+  ['cTrade', 'eTrade', 'oTrade'].forEach(function (id) { $(id).innerHTML = options(TRADES, false); });
+  $('cTrade').value = 'Ayudante general';
+  ['jobTrade', 'wkTrade'].forEach(function (id) { $(id).innerHTML = optionsAll(TRADES, 'Todos'); });
+  $('jobCity').innerHTML = optionsAll([], 'Todas');
+  $('wkCity').innerHTML = optionsAll([], 'Todas');
   renderTypes();
   renderCreate();
 
   (async function start() {
-    await Promise.all([loadProfiles(), loadPosts()]);
+    await Promise.all([loadProfiles(), loadPosts(), loadJobs()]);
     var s = await sb.auth.getSession();
     var sessionUser = s.data && s.data.session ? s.data.session.user : null;
     await handleUser(sessionUser);
