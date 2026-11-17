@@ -351,3 +351,9 @@ body.logged-in #postLoggedOut { display: none; }
   .chat-row { padding: 14px 16px; }
   .toast { bottom: 96px; }
 }
+
+/* "Sobre mí": en la tarjeta se ven solo las primeras líneas */
+.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.field-help { font-size: 12px; font-weight: 400; color: var(--muted); }
+.field.dark .field-help { color: #AEBBBF; }
+textarea::placeholder { line-height: 1.45; }

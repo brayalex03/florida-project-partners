@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=202611170524">
+<link rel="stylesheet" href="css/styles.css?v=202611170532">
 </head>
 <body data-view="inicio">
 
@@ -176,7 +176,7 @@
         <label class="field dark">Ciudad<input id="cCity" type="text" required maxlength="60" list="cityList" placeholder="Ej.: Orlando"></label>
       </div>
       <label class="field dark">Especialidad (opcional)<input id="cTitle" type="text" maxlength="60" placeholder="Ej.: Electricista, Hard money, Gabinetes"></label>
-      <label class="field dark">Descripción breve<textarea id="cDesc" rows="3" maxlength="160" placeholder="Qué haces y dónde trabajas."></textarea></label>
+      <label class="field dark">Sobre mí<textarea id="cDesc" rows="4" maxlength="1500"></textarea><span class="field-help">Cuenta qué haces, dónde trabajas y con quién te gustaría colaborar.</span></label>
       <div class="row">
         <label class="field dark">Correo<input id="cEmail" type="email" required autocomplete="email"></label>
         <label class="field dark">Contraseña<input id="cPass" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
@@ -243,8 +243,7 @@
       <label class="field">Ciudad<input id="eCity" type="text" required maxlength="60" list="cityList"></label>
     </div>
     <label class="field">Especialidad (opcional)<input id="eTitle" type="text" maxlength="60"></label>
-    <label class="field">Descripción breve<input id="eShort" type="text" maxlength="160"></label>
-    <label class="field">Tu historia<textarea id="eBio" rows="5" maxlength="1500" placeholder="Experiencia, licencias, zonas donde trabajas, tipo de proyectos…"></textarea></label>
+    <label class="field">Sobre mí<textarea id="eBio" rows="6" maxlength="1500"></textarea><span class="field-help">Cuenta qué haces, dónde trabajas y con quién te gustaría colaborar.</span></label>
     <p id="editMsg" class="form-msg" hidden></p>
     <div class="dialog-actions">
       <button type="button" class="btn btn-ghost" data-action="close-dialog">Cancelar</button>
@@ -270,7 +269,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=202611170524"></script>
-<script src="js/app.js?v=202611170524"></script>
+<script src="js/config.js?v=202611170532"></script>
+<script src="js/app.js?v=202611170532"></script>
 </body>
 </html>

@@ -89,6 +89,17 @@
   // Lo que ve cada quien: con sesión, todo; sin sesión, primer nombre y foto oculta
   function showName(p) { return state.user ? p.name : firstName(p); }
   function showAvatar(p, size) { return state.user ? avatar(p, size) : hiddenAvatar(p, size); }
+  // Ejemplo de "Sobre mí" según la profesión
+  var ABOUT_EXAMPLES = {
+    'General Contractor': 'Ej.: GC con licencia y 15 años en remodelaciones y casas nuevas en Marion County. Busco inversionistas y realtors para proyectos de fix & flip.',
+    'Contratista': 'Ej.: Electricista con licencia, 10 años en instalaciones residenciales y cambio de paneles en Tampa y Ocala. Trabajo como subcontratista para GCs.',
+    'Prestamista': 'Ej.: Financio fix & flip y construcción nueva en todo Florida. Aprobación rápida y desembolsos por etapas de obra.',
+    'Realtor': 'Ej.: Realtor bilingüe en Orlando y Kissimmee, enfocada en inversionistas. Encuentro casas para remodelar y las vendo cuando están listas.',
+    'Arquitecto': 'Ej.: Arquitecta con estudio propio en Tampa. Diseño casas y dúplex, preparo planos para permisos y acompaño la obra.',
+    'Inversionista': 'Ej.: Compro 5 a 10 casas al año para remodelar en Ocala y Gainesville. Busco GCs confiables y realtors que conozcan la zona.',
+    'Proveedor': 'Ej.: Distribuidor de gabinetes, cuarzo y pisos en Central Florida. Entrego en obra y doy precio especial a contratistas.'
+  };
+  function setAboutExample(id, profession) { $(id).placeholder = ABOUT_EXAMPLES[profession] || ''; }
   function fmtTime(iso) {
     var d = new Date(iso); var now = new Date();
     if (d.toDateString() === now.toDateString()) {
@@ -280,7 +291,7 @@
         '<div class="member-top">' + showAvatar(m, 56) +
         '<div><h3>' + esc(showName(m)) + '</h3><p class="role">' + esc(roleLabel(m)) + '</p></div></div>' +
         '<p class="city">' + PIN + esc(m.city) + ', FL</p>' +
-        '<p class="short">' + esc(m.short || 'Miembro de la red.') + '</p>' +
+        '<p class="short clamp">' + esc(m.bio || m.short || 'Miembro de la red.') + '</p>' +
         '<a href="#/perfil" class="btn btn-soft" data-action="open-profile" data-id="' + esc(m.id) + '">Ver perfil</a>' +
         '</article>';
     }).join('');
@@ -608,13 +619,13 @@
       profession: $('cProf').value,
       title: $('cTitle').value.trim(),
       city: $('cCity').value.trim() || 'Tu ciudad',
-      short: $('cDesc').value.trim() || 'Cuéntale a la red qué haces y dónde trabajas.'
+      bio: $('cDesc').value.trim() || 'Cuéntale a la red qué haces y dónde trabajas.'
     };
     $('preview').innerHTML =
       '<div class="member-top">' + avatar(p ? view : { name: view.name }, 56) +
       '<div><h3>' + esc(view.name) + '</h3><p class="role">' + esc(roleLabel(view)) + '</p></div></div>' +
       '<p class="city">' + PIN + esc(view.city) + ', FL</p>' +
-      '<p class="short">' + esc(view.short || 'Miembro de la red.') + '</p>';
+      '<p class="short clamp">' + esc(view.bio || view.short || 'Miembro de la red.') + '</p>';
   }
 
   function renderAll() {
@@ -724,7 +735,7 @@
   function openEdit() {
     var p = myProfile(); if (!p) return;
     $('eName').value = p.name; $('eProf').value = p.profession; $('eCity').value = p.city;
-    $('eTitle').value = p.title || ''; $('eShort').value = p.short || ''; $('eBio').value = p.bio || '';
+    $('eTitle').value = p.title || ''; $('eBio').value = p.bio || p.short || ''; setAboutExample('eBio', p.profession);
     $('eAvatar').value = ''; $('editAvatar').innerHTML = avatar(p, 56);
     formMsg('editMsg', ''); openDialog('editDialog');
   }
@@ -911,7 +922,9 @@
     try {
       var upd = {
         name: $('eName').value.trim(), profession: $('eProf').value, city: $('eCity').value.trim(),
-        title: $('eTitle').value.trim() || null, short: $('eShort').value.trim() || null, bio: $('eBio').value.trim() || null
+        title: $('eTitle').value.trim() || null,
+        bio: $('eBio').value.trim() || null,
+        short: $('eBio').value.trim().slice(0, 160) || null
       };
       var file = $('eAvatar').files[0];
       var oldAvatar = myProfile() && myProfile().avatar_path;
@@ -1005,6 +1018,8 @@
 
   $('chatInput').addEventListener('input', sendTyping);
 
+  $('cProf').addEventListener('change', function () { setAboutExample('cDesc', this.value); });
+  $('eProf').addEventListener('change', function () { setAboutExample('eBio', this.value); });
   ['cName', 'cProf', 'cCity', 'cTitle', 'cDesc'].forEach(function (id) {
     $(id).addEventListener('input', renderCreate);
     $(id).addEventListener('change', renderCreate);
@@ -1022,6 +1037,7 @@
   $('filterCity').innerHTML = options([], true);
   $('cProf').innerHTML = options(PROFS, false);
   $('eProf').innerHTML = options(PROFS, false);
+  setAboutExample('cDesc', $('cProf').value);
   renderTypes();
   renderCreate();
 
