@@ -357,3 +357,6 @@ body.logged-in #postLoggedOut { display: none; }
 .field-help { font-size: 12px; font-weight: 400; color: var(--muted); }
 .field.dark .field-help { color: #AEBBBF; }
 textarea::placeholder { line-height: 1.45; }
+
+/* Chat: profesión debajo del nombre */
+.chat-row-role { font-size: 13px; font-weight: 600; color: var(--teal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -1px; }
