@@ -26,6 +26,7 @@ supabase/schema.sql              Base de datos, seguridad y fotos
 supabase/002_bolsa_de_trabajo.sql  Trabajadores, ofertas y postulaciones
 supabase/003_mensajes_sin_contacto.sql  Mensajes sin ser contactos y solicitudes de mensajes
 supabase/004_mis_contactos.sql  Mis contactos: agenda privada con notas
+supabase/005_obras_del_trabajador.sql  Contratar postulantes y obras en el perfil del trabajador
 ```
 
 ## Puesta en marcha

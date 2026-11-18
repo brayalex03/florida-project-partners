@@ -465,3 +465,13 @@ input[type="search"] { min-height: 46px; padding: 0 14px; border-radius: 12px; b
 a.pill-ok { text-decoration: none; }
 .btn svg { flex-shrink: 0; }
 .av-48 { width: 48px; height: 48px; font-size: 17px; }
+
+/* Obras del trabajador */
+.obras { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
+.obra { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.obra.pending { background: #FBFAF7; border-style: dashed; }
+.obra h4 { margin: 0; font-size: 17px; }
+.obra .job-meta a { color: var(--ink); font-weight: 600; }
+.obra-status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: var(--soft); color: var(--muted); font-size: 12px; font-weight: 700; }
+.obra-status.on { background: #DCF2E3; color: #1E6B3A; }
+.obra-status svg { width: 14px; height: 14px; }

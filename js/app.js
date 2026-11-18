@@ -291,14 +291,14 @@
     var r = await Promise.all([
       sb.from('portfolio_items').select('*').eq('profile_id', id).order('created_at', { ascending: false }),
       sb.from('collaborations').select('*').eq('profile_id', id).order('created_at', { ascending: true }),
-      sb.from('connections').select('*').eq('status', 'accepted').or('requester_id.eq.' + id + ',addressee_id.eq.' + id),
+      isWorker(state.byId[id]) && state.user ? sb.rpc('worker_obras', { p_worker: id }) : Promise.resolve({ data: [] }),
       sb.from('posts').select('*').eq('author_id', id).order('created_at', { ascending: false }).limit(30)
     ]);
     if (state.sel !== id) return;
     state.selData = {
       portfolio: r[0].data || [],
       collabs: r[1].data || [],
-      contacts: (r[2].data || []).map(function (c) { return c.requester_id === id ? c.addressee_id : c.requester_id; }),
+      obras: r[2].data || [],
       posts: r[3].data || []
     };
   }
@@ -391,7 +391,7 @@
     var p = state.sel ? state.byId[state.sel] : null;
     section.hidden = !p;
     if (!p) return;
-    var d = state.selData || { portfolio: [], collabs: [], contacts: [], posts: [] };
+    var d = state.selData || { portfolio: [], collabs: [], obras: [], posts: [] };
     var isMe = p.id === me();
     var st = isMe ? 'me' : (state.user ? statusWith(p.id) : 'guest');
     var first = firstName(p);
@@ -448,18 +448,18 @@
         '</div>' +
         (p.bio || p.short ? '<p class="bio">' + esc(p.bio || p.short) + '</p>' : (isMe ? '<p class="bio muted">Cuéntale a la red quién eres: toca "Editar perfil".</p>' : '')) +
         (hint ? '<p class="hint">' + esc(hint) + '</p>' : '') +
-        '<div><div class="block-head"><h3>' + (worker ? 'Fotos de mis trabajos' : 'Portafolio') + '</h3>' +
+        '<div><div class="block-head"><h3>Portafolio</h3>' +
           (isMe ? '<button type="button" class="btn btn-outline btn-sm" data-action="add-photo">+ Agregar foto</button>' : '') + '</div><div class="portfolio">' + portfolio + '</div></div>' +
 
         '<div class="collab-box">' +
-          '<div class="block-head"><h3>' + (worker ? 'Trabajé con' : 'Colaboraciones') + '</h3><span>' + (worker ? 'GCs y contratistas que lo confirmaron' : 'Personas con quienes ' + esc(isMe ? 'has' : first + ' ha') + ' trabajado') + '</span></div>' +
+          '<div class="block-head"><h3>Colaboraciones</h3><span>Personas con quienes ' + esc(isMe ? 'has' : first + ' ha') + ' trabajado</span></div>' +
           '<div class="collabs">' + collabsHtml + '</div>' +
           (isMe ? '<form class="collab-form" id="collabForm">' +
             '<label class="field">Agregar colaborador<input type="text" id="collabInput" list="memberNames" maxlength="80" placeholder="Nombre de la persona" autocomplete="off"></label>' +
             '<button type="submit" class="btn btn-dark">+ Agregar</button></form>' +
             '<p class="small" style="margin-top:10px">Si la persona es miembro, la colaboración queda pendiente hasta que la confirme.</p>' : '') +
         '</div>' +
-        (worker || viewerWorker ? '' : '<div class="profile-posts"><div class="block-head"><h3>Publicaciones <span>· ' + d.posts.length + '</span></h3></div>' +
+        (worker ? obrasHtml(d.obras, isMe, first) : viewerWorker ? '' : '<div class="profile-posts"><div class="block-head"><h3>Publicaciones <span>· ' + d.posts.length + '</span></h3></div>' +
           '<div class="feed-layout">' +
             (isMe ? profileComposer() : '') +
             '<div class="feed">' + (d.posts.length ? d.posts.map(function (x) { return postCard(x, true); }).join('')
@@ -469,6 +469,33 @@
         '</div>') +
       '</div>';
     if ($('ppText') && keepText) $('ppText').value = keepText;
+  }
+
+  // Obras del trabajador: dónde lo contrataron (y, para él, dónde se postuló)
+  function obrasHtml(obras, isMe, first) {
+    var list = obras.map(function (o) {
+      var emp = state.byId[o.employer_id];
+      var empName = emp ? emp.name : o.employer_name;
+      var hired = o.status === 'contratado';
+      return '<article class="card obra' + (hired ? '' : ' pending') + '">' +
+        '<div class="job-top"><span class="trade-badge">' + esc(o.trade) + '</span>' +
+          (hired ? '<span class="obra-status on">' + CHECK + 'Contratado</span>' : '<span class="obra-status">Postulado · esperando respuesta</span>') + '</div>' +
+        '<h4>' + esc(o.trade) + ' · ' + esc(o.city) + '</h4>' +
+        '<p class="job-meta">' +
+          '<span>Para ' + (emp ? '<a href="#/perfil" data-action="open-profile" data-id="' + esc(emp.id) + '">' + esc(empName) + '</a>' : '<strong>' + esc(empName) + '</strong>') +
+          ' · ' + esc(o.employer_profession) + '</span>' +
+          (o.start_date ? '<span>' + ICON_CAL + 'Empezó ' + esc(fmtStart(o.start_date)) + '</span>' : '') +
+          (o.duration ? '<span>' + ICON_CLOCK + esc(o.duration) + '</span>' : '') +
+        '</p></article>';
+    }).join('');
+    var hiredCount = obras.filter(function (o) { return o.status === 'contratado'; }).length;
+    return '<div class="profile-obras"><div class="block-head"><h3>Obras <span>· ' + hiredCount + '</span></h3>' +
+      '<span>' + (isMe ? 'Obras donde te postulaste y donde te contrataron' : 'Obras donde ' + esc(first) + ' fue contratado') + '</span></div>' +
+      (list ? '<div class="obras">' + list + '</div>'
+        : '<div class="empty">' + (isMe ? 'Cuando te postules a una oferta de la Bolsa de trabajo, aparecerá aquí. Cuando te contraten, quedará como obra en tu perfil.'
+          : esc(first) + ' todavía no tiene obras en la plataforma.') + '</div>') +
+      (isMe ? '<a href="#/bolsa" class="btn btn-outline btn-sm" style="margin-top:12px">Ver ofertas de trabajo</a>' : '') +
+      '</div>';
   }
 
   async function openProfile(id) {
@@ -999,6 +1026,7 @@
       '<span>' + ICON_PEOPLE + o.people + (o.people > 1 ? ' personas' : ' persona') + '</span>';
     var apps = state.apps.filter(function (a) { return a.offer_id === o.id; });
     var applied = worker && apps.some(function (a) { return a.worker_id === me(); });
+    var hiredMe = worker && apps.some(function (a) { return a.worker_id === me() && a.status === 'contratado'; });
 
     var actions;
     if (mine) {
@@ -1012,7 +1040,8 @@
       actions = '<a href="#/crear/trabajador" class="btn btn-primary btn-sm">Crea tu perfil para postularte</a>';
     } else if (worker) {
       actions = applied
-        ? '<span class="applied">' + CHECK + 'Te postulaste</span><button type="button" class="btn btn-ghost" data-action="withdraw" data-id="' + esc(o.id) + '">Retirar</button>'
+        ? (hiredMe ? '<span class="applied">' + CHECK + '¡Te contrataron!</span>'
+          : '<span class="applied">' + CHECK + 'Te postulaste</span><button type="button" class="btn btn-ghost" data-action="withdraw" data-id="' + esc(o.id) + '">Retirar</button>')
         : '<button type="button" class="btn btn-primary btn-sm" data-action="apply" data-id="' + esc(o.id) + '">Me interesa</button>';
     } else {
       actions = state.byId[emp.id] ? '<a href="#/perfil" class="btn btn-soft btn-sm" data-action="open-profile" data-id="' + esc(emp.id) + '">Ver quién publica</a>' : '';
@@ -1023,14 +1052,15 @@
       applicants = '<div class="applicants">' + (apps.length ? apps.map(function (a) {
         var w = state.byId[a.worker_id];
         if (!w) return '';
-        var connected = statusWith(w.id) === 'connected';
+        var hired = a.status === 'contratado';
         return '<div class="applicant">' + avatar(w, 44) +
           '<span class="who"><strong>' + esc(w.name) + '</strong><small>' + esc(roleLabel(w) + ' · ' + w.city) + '</small></span>' +
           availPill(w) +
           '<span class="acts"><a href="#/perfil" class="btn btn-ghost" data-action="open-profile" data-id="' + esc(w.id) + '">Ver perfil</a>' +
-          (connected
-            ? '<a href="#/mensajes" class="btn btn-primary btn-sm" data-action="open-chat" data-id="' + esc(w.id) + '">Enviar mensaje</a>'
-            : '<a href="#/mensajes" class="btn btn-primary btn-sm" data-action="open-chat" data-id="' + esc(w.id) + '">Enviar mensaje</a>') +
+          '<a href="#/mensajes" class="btn btn-outline btn-sm" data-action="open-chat" data-id="' + esc(w.id) + '">Mensaje</a>' +
+          (hired
+            ? '<span class="obra-status on">' + CHECK + 'Contratado</span><button type="button" class="btn btn-ghost" data-action="unhire" data-id="' + esc(a.id) + '">Deshacer</button>'
+            : '<button type="button" class="btn btn-primary btn-sm" data-action="hire" data-id="' + esc(a.id) + '">Contratar</button>') +
           '</span></div>';
       }).join('') : '<p class="small">Todavía no hay interesados. Te avisamos aquí cuando alguien se postule.</p>') + '</div>';
     }
@@ -1230,6 +1260,16 @@
         state.apps.push(ra.data);
         renderJobs();
         toast('Te postulaste. Si les interesa, te escribirán por Mensajes.');
+        break;
+      }
+      case 'hire':
+      case 'unhire': {
+        el.disabled = true;
+        var hire = action === 'hire';
+        var rh = await sb.from('job_applications').update({ status: hire ? 'contratado' : 'postulado', hired_at: hire ? new Date().toISOString() : null }).eq('id', id);
+        if (rh.error) { el.disabled = false; return toast(errText(rh.error)); }
+        await loadApps(); renderJobs();
+        toast(hire ? 'Contratado. La obra aparece ahora en su perfil.' : 'Listo, se deshizo la contratación.');
         break;
       }
       case 'withdraw': {
