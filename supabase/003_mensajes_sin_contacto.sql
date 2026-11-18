@@ -76,3 +76,6 @@ grant select, delete on public.chat_prefs to authenticated;
 grant insert (user_id, partner_id, state), update (user_id, partner_id, state, updated_at) on public.chat_prefs to authenticated;
 
 create index messages_recipient_sender on public.messages (recipient_id, sender_id);
+
+-- La función contact_applicant (de 002) ya no se usa: ahora se escribe directo sin crear un contacto.
+drop function if exists public.contact_applicant(uuid);
