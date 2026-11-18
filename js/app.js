@@ -59,7 +59,12 @@
     wkTrade: 'Todos',
     wkCity: 'Todas',
     wkAvail: true,
-    chatPrefs: {}
+    chatPrefs: {},
+    contacts: {},
+    ctSearch: '',
+    ctProf: 'Todas',
+    ctCity: 'Todas',
+    editNote: null
   };
 
   // ---------- Utilidades ----------
@@ -84,6 +89,7 @@
     if (p.profession === WORKER) return 'Trabajador · ' + (p.trade || 'Construcción');
     return p.profession + (p.title ? ' · ' + p.title : '');
   }
+  var ICON_ADD, ICON_IN;
   function isWorker(p) { return !!p && p.profession === WORKER; }
   function amWorker() { return isWorker(myProfile()); }
   function amEmployer() { var p = myProfile(); return !!p && EMPLOYERS.indexOf(p.profession) >= 0; }
@@ -237,10 +243,14 @@
     state.posts = res.data || [];
   }
 
+  // Mis contactos: agenda privada (solo la ve su dueño)
   async function loadConnections() {
-    if (!me()) { state.conns = []; return; }
-    var res = await sb.from('connections').select('*').or('requester_id.eq.' + me() + ',addressee_id.eq.' + me());
-    if (!res.error) state.conns = res.data || [];
+    state.conns = [];
+    if (!me()) { state.contacts = {}; return; }
+    var res = await sb.from('contacts').select('*').eq('owner_id', me());
+    if (res.error) return;
+    state.contacts = {};
+    (res.data || []).forEach(function (c) { state.contacts[c.contact_id] = c; });
   }
 
   async function loadMessages() {
@@ -294,17 +304,10 @@
   }
 
   // ---------- Conexiones ----------
-  function connWith(id) {
-    return state.conns.filter(function (c) {
-      return (c.requester_id === me() && c.addressee_id === id) || (c.requester_id === id && c.addressee_id === me());
-    })[0];
-  }
-  function statusWith(id) {
-    var c = connWith(id);
-    if (!c) return 'none';
-    if (c.status === 'accepted') return 'connected';
-    return c.requester_id === me() ? 'pending-out' : 'pending-in';
-  }
+  function connWith() { return null; }
+  function isContact(id) { return !!state.contacts[id]; }
+  // 'connected' = está en mis contactos
+  function statusWith(id) { return isContact(id) ? 'connected' : 'none'; }
   // Personas con conversación o contacto (las ignoradas se ocultan)
   function partnerIds() {
     var ids = {};
@@ -328,7 +331,7 @@
   function canMessage(id) {
     var p = state.byId[id];
     if (!state.user || !p || id === me()) return false;
-    if (statusWith(id) === 'connected' || theyWrote(id)) return true;
+    if (theyWrote(id)) return true;
     if (amWorker()) return false;
     return !isWorker(p) || amEmployer();
   }
@@ -401,26 +404,16 @@
         (worker ? '<button type="button" class="btn btn-outline" data-action="toggle-available">' + (isAvailable(p) ? 'Ya no estoy disponible' : 'Estoy disponible') + '</button>' : '');
     } else if (st === 'guest') {
       actions = '<button type="button" class="btn btn-primary" data-action="open-login">Conectar</button>';
-    } else if (st === 'none' && viewerWorker) {
-      actions = canMessage(p.id) ? msgBtn(p.id, 'btn-primary') : '';
     } else if (st === 'none') {
-      actions = '<button type="button" class="btn btn-outline" data-action="connect" data-id="' + esc(p.id) + '">Agregar a contactos</button>' +
+      actions = '<button type="button" class="btn btn-outline" data-action="connect" data-id="' + esc(p.id) + '">' + ICON_ADD + 'Agregar a contactos</button>' +
         (canMessage(p.id) ? msgBtn(p.id, 'btn-primary') : '');
-    } else if (st === 'pending-out') {
-      actions = '<button type="button" class="btn btn-pending" disabled>Solicitud enviada</button>' + (canMessage(p.id) ? msgBtn(p.id, 'btn-primary') : '');
-    } else if (st === 'pending-in') {
-      var c = connWith(p.id);
-      actions = '<button type="button" class="btn btn-primary" data-action="accept-conn" data-id="' + esc(c.id) + '">Aceptar solicitud</button>' +
-        '<button type="button" class="btn btn-ghost" data-action="reject-conn" data-id="' + esc(c.id) + '">Ignorar</button>' + msgBtn(p.id, 'btn-outline');
     } else {
-      actions = '<span class="pill-ok">' + CHECK + 'Conectados</span>' +
-        '<a href="#/mensajes" class="btn btn-primary" data-action="open-chat" data-id="' + esc(p.id) + '">Enviar mensaje</a>';
+      actions = '<a href="#/contactos" class="pill-ok" title="Ver en Mis contactos">' + ICON_IN + 'En tus contactos</a>' +
+        (canMessage(p.id) ? msgBtn(p.id, 'btn-primary') : '');
     }
 
     var hint = '';
-    if (st === 'none' && viewerWorker && !canMessage(p.id)) hint = 'Postúlate a sus ofertas en la Bolsa de trabajo para que te escriba.';
-    if (st === 'pending-out') hint = first + ' todavía no acepta tu solicitud.';
-    if (st === 'pending-in') hint = first + ' quiere conectar contigo.';
+    if (viewerWorker && !isMe && !canMessage(p.id)) hint = 'Postúlate a sus ofertas en la Bolsa de trabajo para que te escriba.';
     if (st === 'guest') hint = 'Crea tu perfil o entra a tu cuenta para ver quién es ' + first + ' y escribirle.';
 
     var portfolio = d.portfolio.length ? d.portfolio.map(function (it) {
@@ -430,11 +423,6 @@
         '</figcaption></figure>';
     }).join('') : '<div class="empty-tile">' + HOUSE + '<span>' + (isMe ? 'Sube fotos de tus trabajos con "+ Agregar foto".' : 'Todavía no hay fotos.') + '</span></div>';
 
-    var contacts = d.contacts.map(function (id) { return state.byId[id]; }).filter(Boolean);
-    var contactsHtml = contacts.map(function (c) {
-      return '<a href="#/perfil" class="contact" data-action="open-profile" data-id="' + esc(c.id) + '">' + showAvatar(c, 36) +
-        '<span class="txt"><strong>' + esc(c.id === me() ? 'Tú' : showName(c)) + '</strong><small>' + esc(c.profession) + '</small></span></a>';
-    }).join('') || '<p class="small">Todavía sin contactos.</p>';
 
     var collabsHtml = d.collabs.map(function (c) {
       var member = c.collaborator_id ? state.byId[c.collaborator_id] : null;
@@ -462,9 +450,7 @@
         (hint ? '<p class="hint">' + esc(hint) + '</p>' : '') +
         '<div><div class="block-head"><h3>' + (worker ? 'Fotos de mis trabajos' : 'Portafolio') + '</h3>' +
           (isMe ? '<button type="button" class="btn btn-outline btn-sm" data-action="add-photo">+ Agregar foto</button>' : '') + '</div><div class="portfolio">' + portfolio + '</div></div>' +
-        (worker || viewerWorker ? '' : '<div><div class="block-head"><h3>Contactos <span>· ' + contacts.length + (contacts.length === 1 ? ' contacto' : ' contactos') + '</span></h3>' +
-          '<span>Personas conectadas con ' + esc(isMe ? 'tu perfil' : first) + '</span></div>' +
-          '<div class="contacts">' + contactsHtml + '</div></div>') +
+
         '<div class="collab-box">' +
           '<div class="block-head"><h3>' + (worker ? 'Trabajé con' : 'Colaboraciones') + '</h3><span>' + (worker ? 'GCs y contratistas que lo confirmaron' : 'Personas con quienes ' + esc(isMe ? 'has' : first + ' ha') + ' trabajado') + '</span></div>' +
           '<div class="collabs">' + collabsHtml + '</div>' +
@@ -495,7 +481,7 @@
   }
 
   // ---------- Páginas (#/perfil, #/miembros, #/mensajes, #/publicaciones, #/crear) ----------
-  var VIEWS = ['inicio', 'perfil', 'miembros', 'mensajes', 'publicaciones', 'crear', 'bolsa'];
+  var VIEWS = ['inicio', 'perfil', 'miembros', 'mensajes', 'publicaciones', 'crear', 'bolsa', 'contactos'];
   function parseRoute() {
     var parts = location.hash.replace(/^#\/?/, '').split('/');
     var view = parts[0] || 'inicio';
@@ -530,7 +516,8 @@
       state.jobTab = r.id === 'trabajadores' ? 'trabajadores' : 'ofertas';
       renderJobs();
     }
-    if (r.view === 'mensajes' && !state.user) { location.replace('#/'); return; }
+    if ((r.view === 'mensajes' || r.view === 'contactos') && !state.user) { location.replace('#/'); return; }
+    if (r.view === 'contactos') renderContacts();
     if (r.view === 'mensajes') {
       // Con conversación abierta (#/mensajes/<id>) o en la lista de chats
       document.body.dataset.chat = r.id ? 'open' : 'list';
@@ -631,10 +618,9 @@
     var html = t.length ? t.map(function (m) {
       return '<div class="msg' + (m.sender_id === me() ? ' me' : '') + '"><div class="bubble">' + esc(m.body) +
         '<time>' + esc(fmtTime(m.created_at)) + '</time></div></div>';
-    }).join('') : '<p class="chat-first">' + (statusWith(act) === 'connected' ? 'Escribe el primer mensaje.'
-        : esc(firstName(p)) + ' no está en tus contactos: tu mensaje le llegará como solicitud de mensaje.') + '</p>';
+    }).join('') : '<p class="chat-first">Escribe el primer mensaje.' + (theyWrote(act) ? '' : ' Si ' + esc(firstName(p)) + ' nunca te ha escrito, le llegará como solicitud de mensaje.') + '</p>';
     if (isMsgRequest(act)) {
-      html = '<div class="req-banner"><p><strong>' + esc(firstName(p)) + ' no está en tus contactos.</strong> Si respondes, la conversación pasa a tus chats.</p>' +
+      html = '<div class="req-banner"><p><strong>' + esc(firstName(p)) + ' te escribió por primera vez.</strong> Si respondes o aceptas, la conversación pasa a tus chats.</p>' +
         '<span><button type="button" class="btn btn-primary btn-sm" data-action="accept-chat" data-id="' + esc(act) + '">Aceptar</button>' +
         '<button type="button" class="btn btn-ghost" data-action="ignore-chat" data-id="' + esc(act) + '">Ignorar</button></span></div>' + html;
     }
@@ -656,14 +642,10 @@
   }
 
   // Botón dentro del chat: agregar a contactos
-  var ICON_ADD = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M2.5 21c.7-4 3.7-6.5 7.5-6.5 1.6 0 3 .4 4.2 1.2"/><path d="M19 14v6M16 17h6"/></svg>';
-  var ICON_IN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M2.5 21c.7-4 3.7-6.5 7.5-6.5 1.6 0 3 .4 4.2 1.2"/><path d="M15.5 18l2 2 4-4"/></svg>';
+  ICON_ADD = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M2.5 21c.7-4 3.7-6.5 7.5-6.5 1.6 0 3 .4 4.2 1.2"/><path d="M19 14v6M16 17h6"/></svg>';
+  ICON_IN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M2.5 21c.7-4 3.7-6.5 7.5-6.5 1.6 0 3 .4 4.2 1.2"/><path d="M15.5 18l2 2 4-4"/></svg>';
   function contactButton(p) {
-    var st = statusWith(p.id);
-    if (st === 'connected') return '<span class="chat-contact on" title="Está en tus contactos">' + ICON_IN + '<span class="lbl">En tus contactos</span></span>';
-    if (st === 'pending-out') return '<span class="chat-contact" title="Solicitud enviada">' + ICON_ADD + '<span class="lbl">Solicitud enviada</span></span>';
-    if (st === 'pending-in') return '<button type="button" class="chat-contact act" data-action="accept-conn" data-id="' + esc(connWith(p.id).id) + '" title="Aceptar como contacto">' + ICON_ADD + '<span class="lbl">Aceptar contacto</span></button>';
-    if (amWorker()) return '';
+    if (isContact(p.id)) return '<a href="#/contactos" class="chat-contact on" title="Está en tus contactos">' + ICON_IN + '<span class="lbl">En tus contactos</span></a>';
     return '<button type="button" class="chat-contact act" data-action="connect" data-id="' + esc(p.id) + '" title="Agregar a contactos" aria-label="Agregar a ' + esc(p.name) + ' a contactos">' + ICON_ADD + '<span class="lbl">Agregar a contactos</span></button>';
   }
 
@@ -800,6 +782,7 @@
     renderPosts();
     renderCreate();
     renderJobs();
+    renderContacts();
   }
 
   // ---------- Tiempo real ----------
@@ -1113,14 +1096,59 @@
   // ---------- Acciones ----------
   async function connect(id) {
     if (!state.user) return openLogin();
-    var st = statusWith(id);
-    if (st === 'pending-in') return acceptConn(connWith(id).id);
-    if (st !== 'none') return;
-    var res = await sb.from('connections').insert({ requester_id: me(), addressee_id: id }).select().single();
+    if (isContact(id)) return;
+    var res = await sb.from('contacts').insert({ owner_id: me(), contact_id: id }).select().single();
     if (res.error) return toast(errText(res.error));
-    state.conns.push(res.data);
-    renderProfile(); renderPosts(); renderMessenger(); renderJobs();
-    toast('Solicitud de contacto enviada.');
+    state.contacts[id] = res.data;
+    renderProfile(); renderMessenger(); renderContacts();
+    toast('Agregado a Mis contactos. Solo tú lo ves.');
+  }
+  async function removeContact(id) {
+    var p = state.byId[id];
+    if (!confirmAction('¿Quitar a ' + (p ? p.name : 'esta persona') + ' de tus contactos?')) return;
+    var res = await sb.from('contacts').delete().eq('owner_id', me()).eq('contact_id', id);
+    if (res.error) return toast(errText(res.error));
+    delete state.contacts[id];
+    renderContacts(); renderProfile(); renderMessenger();
+  }
+
+  // ---------- Mis contactos ----------
+  function renderContacts() {
+    if (!$('ctList') || !state.user) return;
+    var all = Object.keys(state.contacts).map(function (id) { return state.byId[id]; }).filter(Boolean);
+    var cities = Array.from(new Set(all.map(function (p) { return p.city; }))).sort();
+    state.ctCity = fillCityFilter('ctCity', cities, state.ctCity);
+    var q = state.ctSearch.trim().toLowerCase();
+    var list = all.filter(function (p) {
+      var note = (state.contacts[p.id].note || '');
+      var hay = (p.name + ' ' + roleLabel(p) + ' ' + p.city + ' ' + note).toLowerCase();
+      return (!q || hay.indexOf(q) >= 0) &&
+        (state.ctProf === 'Todas' || p.profession === state.ctProf) &&
+        (state.ctCity === 'Todas' || p.city === state.ctCity);
+    }).sort(function (a, b) { return a.name.localeCompare(b.name, 'es'); });
+    $('ctCount').textContent = all.length + (all.length === 1 ? ' contacto' : ' contactos') + (list.length !== all.length ? ' · ' + list.length + ' con este filtro' : '');
+    if (!all.length) {
+      $('ctList').innerHTML = '<div class="empty">Todavía no tienes contactos. Agrégalos desde su perfil o desde un chat con el botón <strong>"Agregar a contactos"</strong>.</div>';
+      return;
+    }
+    $('ctList').innerHTML = list.length ? list.map(function (p) {
+      var c = state.contacts[p.id];
+      var editing = state.editNote === p.id;
+      return '<article class="card ct-row">' +
+        '<a href="#/perfil" class="ct-who" data-action="open-profile" data-id="' + esc(p.id) + '">' + avatar(p, 48) +
+          '<span><strong>' + esc(p.name) + '</strong><small class="teal">' + esc(roleLabel(p)) + '</small><small>' + PIN.replace(/width="16" height="16"/, 'width="13" height="13"') + esc(p.city) + '</small></span></a>' +
+        (editing
+          ? '<form class="ct-note-form" data-id="' + esc(p.id) + '"><textarea id="ctNoteInput" rows="2" maxlength="500" placeholder="Ej.: Hizo la cocina de Belleview. Buen precio, puntual.">' + esc(c.note || '') + '</textarea>' +
+            '<span><button type="submit" class="btn btn-primary btn-sm">Guardar</button><button type="button" class="btn btn-ghost" data-action="cancel-note">Cancelar</button></span></form>'
+          : '<p class="ct-note' + (c.note ? '' : ' empty-note') + '">' + (c.note ? esc(c.note) : 'Sin nota') + '</p>') +
+        '<div class="ct-actions">' +
+          (canMessage(p.id) ? '<a href="#/mensajes" class="btn btn-primary btn-sm" data-action="open-chat" data-id="' + esc(p.id) + '">Mensaje</a>' : '') +
+          (editing ? '' : '<button type="button" class="btn btn-soft btn-sm" data-action="edit-note" data-id="' + esc(p.id) + '">' + (c.note ? 'Editar nota' : 'Agregar nota') + '</button>') +
+          '<button type="button" class="btn btn-ghost" data-action="remove-contact" data-id="' + esc(p.id) + '">Quitar</button>' +
+        '</div></article>';
+    }).join('') : '<div class="empty">Nadie coincide con esa búsqueda.</div>';
+    if (editing()) setTimeout(function () { var t = $('ctNoteInput'); if (t) t.focus(); }, 30);
+    function editing() { return !!state.editNote && list.some(function (p) { return p.id === state.editNote; }); }
   }
   async function acceptConn(connId) {
     var res = await sb.from('connections').update({ status: 'accepted' }).eq('id', connId).select().single();
@@ -1165,6 +1193,9 @@
         $('photoForm').reset(); formMsg('photoMsg', ''); openDialog('photoDialog');
         break;
       case 'connect': el.disabled = true; await connect(id); break;
+      case 'remove-contact': await removeContact(id); break;
+      case 'edit-note': state.editNote = id; renderContacts(); break;
+      case 'cancel-note': state.editNote = null; renderContacts(); break;
       case 'accept-conn': el.disabled = true; await acceptConn(id); break;
       case 'reject-conn': el.disabled = true; await rejectConn(id); break;
       case 'open-chat':
@@ -1289,6 +1320,19 @@
   });
 
   function confirmAction(text) { return window.confirm(text); }
+
+  // Guardar la nota privada de un contacto
+  document.addEventListener('submit', async function (e) {
+    if (!e.target.classList.contains('ct-note-form')) return;
+    e.preventDefault();
+    var id = e.target.getAttribute('data-id');
+    var note = $('ctNoteInput').value.trim() || null;
+    var res = await sb.from('contacts').update({ note: note }).eq('owner_id', me()).eq('contact_id', id);
+    if (res.error) return toast(errText(res.error));
+    state.contacts[id].note = note;
+    state.editNote = null;
+    renderContacts();
+  });
 
   // Formularios que se dibujan dentro del perfil
   document.addEventListener('submit', async function (e) {
@@ -1470,6 +1514,9 @@
   });
 
   // Bolsa de trabajo: filtros, registro y nueva oferta
+  $('ctSearch').addEventListener('input', function (e) { state.ctSearch = e.target.value; renderContacts(); });
+  $('ctProf').addEventListener('change', function (e) { state.ctProf = e.target.value; renderContacts(); });
+  $('ctCity').addEventListener('change', function (e) { state.ctCity = e.target.value; renderContacts(); });
   $('jobTrade').addEventListener('change', function (e) { state.jobTrade = e.target.value; renderOffers(); });
   $('jobCity').addEventListener('change', function (e) { state.jobCity = e.target.value; renderOffers(); });
   $('wkTrade').addEventListener('change', function (e) { state.wkTrade = e.target.value; renderWorkers(); });
@@ -1517,6 +1564,8 @@
   $('cTrade').value = 'Ayudante general';
   ['jobTrade', 'wkTrade'].forEach(function (id) { $(id).innerHTML = optionsAll(TRADES, 'Todos'); });
   $('jobCity').innerHTML = optionsAll([], 'Todas');
+  $('ctProf').innerHTML = optionsAll(PROFS.concat([WORKER]), 'Todas');
+  $('ctCity').innerHTML = optionsAll([], 'Todas');
   $('wkCity').innerHTML = optionsAll([], 'Todas');
   renderTypes();
   renderCreate();

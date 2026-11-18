@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=202611181609">
+<link rel="stylesheet" href="css/styles.css?v=202611181624">
 </head>
 <body data-view="inicio">
 
@@ -21,6 +21,7 @@
     <nav class="nav">
       <a href="#/miembros" data-nav="miembros">Miembros</a>
       <a href="#/mensajes" class="nav-msg" data-nav="mensajes">Mensajes <span id="unreadBadge" class="badge" hidden></span></a>
+      <a href="#/contactos" class="nav-contacts" data-nav="contactos">Mis contactos</a>
       <a href="#/publicaciones" data-nav="publicaciones">Publicaciones</a>
       <a href="#/bolsa" data-nav="bolsa">Bolsa de trabajo</a>
       <span id="authOut" class="nav-auth">
@@ -169,6 +170,22 @@
     </div>
     <div id="feed" class="feed"></div>
   </div>
+</section>
+
+<section id="contactos" class="wrap section">
+  <div class="section-head">
+    <div>
+      <h2>Mis contactos</h2>
+      <p class="muted" id="ctCount"></p>
+    </div>
+  </div>
+  <p class="private-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Solo tú ves esta lista. Las personas no reciben aviso cuando las agregas.</p>
+  <div class="filters job-filters">
+    <label class="grow">Buscar<input id="ctSearch" type="search" placeholder="Nombre, oficio, ciudad o nota" autocomplete="off"></label>
+    <label>Profesión<select id="ctProf"></select></label>
+    <label>Ciudad<select id="ctCity"></select></label>
+  </div>
+  <div id="ctList" class="ct-list"></div>
 </section>
 
 <section id="bolsa" class="wrap section">
@@ -333,7 +350,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
-<script src="js/config.js?v=202611181609"></script>
-<script src="js/app.js?v=202611181609"></script>
+<script src="js/config.js?v=202611181624"></script>
+<script src="js/app.js?v=202611181624"></script>
 </body>
 </html>

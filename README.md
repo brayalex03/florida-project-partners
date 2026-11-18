@@ -9,7 +9,7 @@ Red profesional para la gente de bienes raíces y construcción en Florida: cont
 - Registro e inicio de sesión (correo y contraseña)
 - Perfiles con foto, historia y portafolio de trabajos con fotos
 - Directorio con filtros por profesión y ciudad
-- Conectar: solicitud, aceptar o ignorar, y lista de contactos en cada perfil
+- Mis contactos: agenda privada (solo la ve su dueño) con buscador, filtros y nota por contacto
 - Mensajes en tiempo real entre contactos: enviado, visto y escribiendo…
 - Colaboraciones: las confirma la otra persona
 - Publicaciones con hasta 4 fotos
@@ -25,6 +25,7 @@ js/app.js            Lógica de la página
 supabase/schema.sql              Base de datos, seguridad y fotos
 supabase/002_bolsa_de_trabajo.sql  Trabajadores, ofertas y postulaciones
 supabase/003_mensajes_sin_contacto.sql  Mensajes sin ser contactos y solicitudes de mensajes
+supabase/004_mis_contactos.sql  Mis contactos: agenda privada con notas
 ```
 
 ## Puesta en marcha

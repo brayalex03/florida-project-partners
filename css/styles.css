@@ -441,3 +441,27 @@ input[type="number"], input[type="date"] { min-height: 46px; padding: 0 12px; bo
 .req-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; margin-bottom: 6px; border-radius: 14px; background: #FFF6E9; border: 1px solid #F3D9B5; font-size: 14px; }
 .req-banner p { margin: 0; flex: 1 1 220px; }
 .req-banner span { display: flex; gap: 6px; }
+
+/* ---------- Mis contactos (privado) ---------- */
+body:not(.logged-in) .nav-contacts { display: none; }
+body[data-view="inicio"] #contactos { display: none; }
+body[data-view="contactos"] main > section:not(#contactos) { display: none; }
+.private-note { display: flex; align-items: center; gap: 8px; margin: -8px 0 18px; font-size: 14px; color: var(--muted); }
+.filters label.grow { flex: 1 1 260px; }
+input[type="search"] { min-height: 46px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--line-strong); background: var(--surface); font-size: 15px; color: var(--ink); font-family: inherit; }
+.ct-list { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
+.ct-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding: 16px 18px; }
+.ct-who { flex: 1 1 240px; display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); min-width: 0; }
+.ct-who:hover { color: var(--ink); }
+.ct-who span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ct-who strong { font-size: 16px; }
+.ct-who small { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 3px; }
+.ct-who small.teal { color: var(--teal); font-weight: 600; }
+.ct-note { flex: 2 1 240px; margin: 0; font-size: 14px; color: var(--text); font-style: italic; overflow-wrap: anywhere; }
+.ct-note.empty-note { color: #8C9499; }
+.ct-note-form { flex: 2 1 260px; display: flex; flex-direction: column; gap: 8px; }
+.ct-note-form span { display: flex; gap: 6px; }
+.ct-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+a.pill-ok { text-decoration: none; }
+.btn svg { flex-shrink: 0; }
+.av-48 { width: 48px; height: 48px; font-size: 17px; }
