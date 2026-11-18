@@ -355,8 +355,7 @@
     var unread = state.msgs.filter(function (m) { return m.recipient_id === me() && !m.read_at && state.chatPrefs[m.sender_id] !== 'ignored'; }).length;
     var reqs = state.conns.filter(function (c) { return c.status === 'pending' && c.addressee_id === me(); }).length + state.collabReqs.length;
     var total = unread + reqs;
-    $('unreadBadge').hidden = total === 0;
-    $('unreadBadge').textContent = total;
+    ['unreadBadge', 'unreadBadge2'].forEach(function (b) { $(b).hidden = total === 0; $(b).textContent = total > 99 ? '99+' : total; });
     state.notifTotal = total;
     // El mismo número en el botón "Mensajes" de tu perfil
     var pb = $('profileMsgBadge');
