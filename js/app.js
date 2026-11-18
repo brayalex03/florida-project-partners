@@ -357,9 +357,7 @@
     var actions;
     if (st === 'me') {
       actions = '<button type="button" class="btn btn-primary" data-action="edit-profile">Editar perfil</button>' +
-        (worker ? '<button type="button" class="btn btn-outline" data-action="toggle-available">' + (isAvailable(p) ? 'Ya no estoy disponible' : 'Estoy disponible') + '</button>' : '') +
-        '<a href="#/mensajes" class="btn btn-outline">Mensajes' +
-        '<span id="profileMsgBadge" class="badge"' + (state.notifTotal ? '' : ' hidden') + '>' + (state.notifTotal || '') + '</span></a>';
+        (worker ? '<button type="button" class="btn btn-outline" data-action="toggle-available">' + (isAvailable(p) ? 'Ya no estoy disponible' : 'Estoy disponible') + '</button>' : '');
     } else if (st === 'guest') {
       actions = '<button type="button" class="btn btn-primary" data-action="open-login">Conectar</button>';
     } else if (st === 'none' && viewerWorker) {
