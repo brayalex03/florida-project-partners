@@ -58,7 +58,8 @@
     jobCity: 'Todas',
     wkTrade: 'Todos',
     wkCity: 'Todas',
-    wkAvail: true
+    wkAvail: true,
+    chatPrefs: {}
   };
 
   // ---------- Utilidades ----------
@@ -260,6 +261,14 @@
     if (!res.error) state.apps = res.data || [];
   }
 
+  async function loadChatPrefs() {
+    if (!me()) { state.chatPrefs = {}; return; }
+    var res = await sb.from('chat_prefs').select('*');
+    if (res.error) return;
+    state.chatPrefs = {};
+    (res.data || []).forEach(function (r) { state.chatPrefs[r.partner_id] = r.state; });
+  }
+
   async function loadCollabRequests() {
     if (!me()) { state.collabReqs = []; return; }
     var res = await sb.from('collaborations').select('*').eq('collaborator_id', me()).eq('confirmed', false);
@@ -296,10 +305,42 @@
     if (c.status === 'accepted') return 'connected';
     return c.requester_id === me() ? 'pending-out' : 'pending-in';
   }
+  // Personas con conversación o contacto (las ignoradas se ocultan)
   function partnerIds() {
-    return state.conns.filter(function (c) { return c.status === 'accepted'; })
-      .map(function (c) { return c.requester_id === me() ? c.addressee_id : c.requester_id; })
-      .filter(function (id) { return state.byId[id]; });
+    var ids = {};
+    state.conns.filter(function (c) { return c.status === 'accepted'; })
+      .forEach(function (c) { ids[c.requester_id === me() ? c.addressee_id : c.requester_id] = true; });
+    state.msgs.forEach(function (m) { ids[m.sender_id === me() ? m.recipient_id : m.sender_id] = true; });
+    if (state.active) ids[state.active] = true;
+    return Object.keys(ids).filter(function (id) {
+      return id !== me() && state.byId[id] && (state.chatPrefs[id] !== 'ignored' || id === state.active);
+    });
+  }
+  function theyWrote(id) { return state.msgs.some(function (m) { return m.sender_id === id && m.recipient_id === me(); }); }
+  function iWrote(id) { return state.msgs.some(function (m) { return m.sender_id === me() && m.recipient_id === id; }); }
+  function appliedToEmployer(id) {
+    return state.apps.some(function (a) {
+      var o = state.jobs.filter(function (x) { return x.id === a.offer_id; })[0];
+      return a.worker_id === me() && o && o.employer_id === id;
+    });
+  }
+  // ¿Puedo escribirle? (las mismas reglas que la base de datos)
+  function canMessage(id) {
+    var p = state.byId[id];
+    if (!state.user || !p || id === me()) return false;
+    if (statusWith(id) === 'connected' || theyWrote(id)) return true;
+    if (amWorker()) return false;
+    return !isWorker(p) || amEmployer();
+  }
+  // Conversación que llegó de alguien que no es contacto y aún no respondo ni acepto
+  function isMsgRequest(id) {
+    return theyWrote(id) && !iWrote(id) && statusWith(id) !== 'connected' &&
+      state.chatPrefs[id] !== 'accepted' && !(amWorker() && appliedToEmployer(id));
+  }
+  async function setChatPref(id, value) {
+    state.chatPrefs[id] = value;
+    var res = await sb.from('chat_prefs').upsert({ user_id: me(), partner_id: id, state: value }, { onConflict: 'user_id,partner_id' });
+    if (res.error) toast(errText(res.error));
   }
 
   // ---------- Render: encabezado ----------
@@ -308,7 +349,7 @@
     $('authOut').hidden = !!state.user;
     $('authIn').hidden = !state.user;
     if (p) { $('meAvatar').innerHTML = avatar(p, 28); $('meName').textContent = firstName(p); }
-    var unread = state.msgs.filter(function (m) { return m.recipient_id === me() && !m.read_at; }).length;
+    var unread = state.msgs.filter(function (m) { return m.recipient_id === me() && !m.read_at && state.chatPrefs[m.sender_id] !== 'ignored'; }).length;
     var reqs = state.conns.filter(function (c) { return c.status === 'pending' && c.addressee_id === me(); }).length + state.collabReqs.length;
     var total = unread + reqs;
     $('unreadBadge').hidden = total === 0;
@@ -361,28 +402,26 @@
     } else if (st === 'guest') {
       actions = '<button type="button" class="btn btn-primary" data-action="open-login">Conectar</button>';
     } else if (st === 'none' && viewerWorker) {
-      actions = '';
+      actions = canMessage(p.id) ? msgBtn(p.id, 'btn-primary') : '';
     } else if (st === 'none') {
-      actions = '<button type="button" class="btn btn-primary" data-action="connect" data-id="' + esc(p.id) + '">' + (worker ? 'Contactar' : 'Conectar') + '</button>' +
-        (worker ? '' : '<button type="button" class="btn btn-disabled" disabled title="Conéctate para enviar mensajes">Enviar mensaje</button>');
+      actions = '<button type="button" class="btn btn-outline" data-action="connect" data-id="' + esc(p.id) + '">Agregar a contactos</button>' +
+        (canMessage(p.id) ? msgBtn(p.id, 'btn-primary') : '');
     } else if (st === 'pending-out') {
-      actions = '<button type="button" class="btn btn-pending" disabled>Solicitud enviada</button>';
+      actions = '<button type="button" class="btn btn-pending" disabled>Solicitud enviada</button>' + (canMessage(p.id) ? msgBtn(p.id, 'btn-primary') : '');
     } else if (st === 'pending-in') {
       var c = connWith(p.id);
       actions = '<button type="button" class="btn btn-primary" data-action="accept-conn" data-id="' + esc(c.id) + '">Aceptar solicitud</button>' +
-        '<button type="button" class="btn btn-ghost" data-action="reject-conn" data-id="' + esc(c.id) + '">Ignorar</button>';
+        '<button type="button" class="btn btn-ghost" data-action="reject-conn" data-id="' + esc(c.id) + '">Ignorar</button>' + msgBtn(p.id, 'btn-outline');
     } else {
       actions = '<span class="pill-ok">' + CHECK + 'Conectados</span>' +
         '<a href="#/mensajes" class="btn btn-primary" data-action="open-chat" data-id="' + esc(p.id) + '">Enviar mensaje</a>';
     }
 
     var hint = '';
-    if (st === 'none') hint = viewerWorker ? 'Postúlate a sus ofertas en la Bolsa de trabajo para que te contacte.'
-      : worker ? 'Toca "Contactar": cuando ' + first + ' acepte, podrán hablar por Mensajes.'
-      : 'Conéctate con ' + first + ' para poder enviarle mensajes.';
+    if (st === 'none' && viewerWorker && !canMessage(p.id)) hint = 'Postúlate a sus ofertas en la Bolsa de trabajo para que te escriba.';
     if (st === 'pending-out') hint = first + ' todavía no acepta tu solicitud.';
     if (st === 'pending-in') hint = first + ' quiere conectar contigo.';
-    if (st === 'guest') hint = 'Crea tu perfil o entra a tu cuenta para ver quién es ' + first + ' y conectar.';
+    if (st === 'guest') hint = 'Crea tu perfil o entra a tu cuenta para ver quién es ' + first + ' y escribirle.';
 
     var portfolio = d.portfolio.length ? d.portfolio.map(function (it) {
       return '<figure><img class="photo-img" src="' + esc(photoUrl(it.image_path)) + '" alt="' + esc(it.title) + '" loading="lazy">' +
@@ -506,6 +545,10 @@
   }
   window.addEventListener('hashchange', route);
 
+  function msgBtn(id, cls) {
+    return '<a href="#/mensajes" class="btn ' + cls + '" data-action="open-chat" data-id="' + esc(id) + '">Enviar mensaje</a>';
+  }
+
   // ---------- Render: solicitudes ----------
   function renderRequests() {
     var box = $('requests');
@@ -543,12 +586,17 @@
     $('messenger').hidden = !logged;
     if (!logged) return;
 
-    var ids = partnerIds().map(function (id) {
+    var all = partnerIds().map(function (id) {
       var t = threadWith(id); var last = t[t.length - 1];
       return { id: id, last: last, at: last ? last.created_at : '' };
     }).sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+    var ids = all.filter(function (x) { return !isMsgRequest(x.id); });
+    var reqs = all.filter(function (x) { return isMsgRequest(x.id); });
 
-    $('chatList').innerHTML = ids.length ? ids.map(function (x) {
+    $('chatList').innerHTML = (ids.length ? ids.map(chatRow).join('') : '<p class="chat-none">Tus conversaciones aparecen aquí. Escríbele a alguien desde su perfil.</p>') +
+      (reqs.length ? '<div class="chat-req-head">Solicitudes de mensajes <span>' + reqs.length + '</span></div>' + reqs.map(chatRow).join('') : '');
+
+    function chatRow(x) {
       var p = state.byId[x.id];
       var unread = state.msgs.filter(function (m) { return m.sender_id === x.id && m.recipient_id === me() && !m.read_at; }).length;
       var preview = state.typingFrom[x.id] ? 'Escribiendo…' : x.last ? (x.last.sender_id === me() ? 'Tú: ' : '') + x.last.body : 'Nuevo contacto · salúdalo';
@@ -561,9 +609,9 @@
           '<span class="chat-row-line"><span class="preview">' + esc(preview) + '</span>' +
           (unread ? '<span class="badge">' + unread + '</span>' : '') + '</span>' +
         '</span></button>';
-    }).join('') : '<p class="chat-none">Cuando conectes con alguien, su chat aparece aquí.</p>';
+    }
 
-    var act = state.active && statusWith(state.active) === 'connected' && state.byId[state.active] ? state.active : null;
+    var act = state.active && state.byId[state.active] && state.active !== me() ? state.active : null;
     $('chatHeader').hidden = !act;
     $('chatMessages').hidden = !act;
     $('chatForm').hidden = !act;
@@ -575,14 +623,21 @@
       '<button type="button" class="chat-back" data-action="chat-back" aria-label="Volver a los chats">' +
       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>' +
       avatar(p, 44) +
-      '<span class="txt"><strong>' + esc(p.name) + '</strong><small>' + esc(roleLabel(p) + ' · ' + p.city) + '</small></span>';
+      '<span class="txt"><strong>' + esc(p.name) + '</strong><small>' + esc(roleLabel(p) + ' · ' + p.city) + '</small></span>' +
+      contactButton(p);
 
     var t = threadWith(act);
     var last = t[t.length - 1];
     var html = t.length ? t.map(function (m) {
       return '<div class="msg' + (m.sender_id === me() ? ' me' : '') + '"><div class="bubble">' + esc(m.body) +
         '<time>' + esc(fmtTime(m.created_at)) + '</time></div></div>';
-    }).join('') : '<p class="chat-first">Ya están conectados. Escribe el primer mensaje.</p>';
+    }).join('') : '<p class="chat-first">' + (statusWith(act) === 'connected' ? 'Escribe el primer mensaje.'
+        : esc(firstName(p)) + ' no está en tus contactos: tu mensaje le llegará como solicitud de mensaje.') + '</p>';
+    if (isMsgRequest(act)) {
+      html = '<div class="req-banner"><p><strong>' + esc(firstName(p)) + ' no está en tus contactos.</strong> Si respondes, la conversación pasa a tus chats.</p>' +
+        '<span><button type="button" class="btn btn-primary btn-sm" data-action="accept-chat" data-id="' + esc(act) + '">Aceptar</button>' +
+        '<button type="button" class="btn btn-ghost" data-action="ignore-chat" data-id="' + esc(act) + '">Ignorar</button></span></div>' + html;
+    }
     var typing = !!state.typingFrom[act];
     if (last && last.sender_id === me() && !typing) {
       html += last.read_at
@@ -590,11 +645,26 @@
         : '<div class="status">Enviado</div>';
     }
     if (typing) html += '<div class="typing">' + esc(firstName(p)) + ' está escribiendo…</div>';
+    var canWrite = canMessage(act);
+    $('chatForm').hidden = !canWrite;
+    if (!canWrite) html += '<p class="chat-first">Solo puedes responder cuando ' + esc(firstName(p)) + ' te escriba.</p>';
     var box = $('chatMessages');
     var nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
     box.innerHTML = html;
     if (nearBottom || box.dataset.chat !== act) box.scrollTop = box.scrollHeight;
     box.dataset.chat = act;
+  }
+
+  // Botón dentro del chat: agregar a contactos
+  var ICON_ADD = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M2.5 21c.7-4 3.7-6.5 7.5-6.5 1.6 0 3 .4 4.2 1.2"/><path d="M19 14v6M16 17h6"/></svg>';
+  var ICON_IN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M2.5 21c.7-4 3.7-6.5 7.5-6.5 1.6 0 3 .4 4.2 1.2"/><path d="M15.5 18l2 2 4-4"/></svg>';
+  function contactButton(p) {
+    var st = statusWith(p.id);
+    if (st === 'connected') return '<span class="chat-contact on" title="Está en tus contactos">' + ICON_IN + '<span class="lbl">En tus contactos</span></span>';
+    if (st === 'pending-out') return '<span class="chat-contact" title="Solicitud enviada">' + ICON_ADD + '<span class="lbl">Solicitud enviada</span></span>';
+    if (st === 'pending-in') return '<button type="button" class="chat-contact act" data-action="accept-conn" data-id="' + esc(connWith(p.id).id) + '" title="Aceptar como contacto">' + ICON_ADD + '<span class="lbl">Aceptar contacto</span></button>';
+    if (amWorker()) return '';
+    return '<button type="button" class="chat-contact act" data-action="connect" data-id="' + esc(p.id) + '" title="Agregar a contactos" aria-label="Agregar a ' + esc(p.name) + ' a contactos">' + ICON_ADD + '<span class="lbl">Agregar a contactos</span></button>';
   }
 
   async function markRead(id) {
@@ -684,7 +754,7 @@
         return '<img class="post-photo" src="' + esc(photoUrl(ph)) + '" alt="Foto de la publicación" loading="lazy">';
       }).join('') + '</div>' : '';
       var isMine = post.author_id === me();
-      var connected = !isMine && state.user && statusWith(post.author_id) === 'connected';
+      var connected = !isMine && canMessage(post.author_id);
       return '<article class="card post">' +
         '<div class="post-head"><div class="post-author">' + showAvatar(a, 46) +
           '<div><p class="name">' + esc(showName(a)) + '</p><p class="meta">' + esc(meta) + '</p></div></div>' +
@@ -743,6 +813,9 @@
         var i = state.msgs.findIndex(function (m) { return m.id === row.id; });
         if (i >= 0) state.msgs[i] = row; else state.msgs.push(row);
         if (row.sender_id !== me()) delete state.typingFrom[row.sender_id];
+        if (!state.byId[row.sender_id] || !state.byId[row.recipient_id]) {
+          loadProfiles().then(function () { renderMessenger(); renderHeader(); });
+        }
         if (payload.eventType === 'INSERT' && row.sender_id === state.active && row.recipient_id === me() && chatIsOnScreen()) {
           markRead(row.sender_id);
         }
@@ -767,7 +840,7 @@
     state.typingInbox = sb.channel('typing-' + me())
       .on('broadcast', { event: 'typing' }, function (msg) {
         var from = msg.payload && msg.payload.from;
-        if (!from || statusWith(from) !== 'connected') return;
+        if (!from || !(statusWith(from) === 'connected' || threadWith(from).length)) return;
         state.typingFrom[from] = Date.now();
         renderMessenger();
         setTimeout(function () {
@@ -801,11 +874,11 @@
         await new Promise(function (r) { setTimeout(r, 1200); });
         await loadProfiles();
       }
-      await Promise.all([loadConnections(), loadMessages(), loadCollabRequests(), loadApps(), loadJobs()]);
+      await Promise.all([loadConnections(), loadMessages(), loadCollabRequests(), loadApps(), loadJobs(), loadChatPrefs()]);
       subscribe();
     } else {
       unsubscribe();
-      state.conns = []; state.msgs = []; state.collabReqs = []; state.apps = []; state.openApps = {};
+      state.conns = []; state.msgs = []; state.collabReqs = []; state.apps = []; state.openApps = {}; state.chatPrefs = {};
       await Promise.all([loadProfiles(), loadJobs()]);
     }
     if (state.sel) await loadSelected();
@@ -974,7 +1047,7 @@
           '<span class="acts"><a href="#/perfil" class="btn btn-ghost" data-action="open-profile" data-id="' + esc(w.id) + '">Ver perfil</a>' +
           (connected
             ? '<a href="#/mensajes" class="btn btn-primary btn-sm" data-action="open-chat" data-id="' + esc(w.id) + '">Enviar mensaje</a>'
-            : '<button type="button" class="btn btn-primary btn-sm" data-action="contact-app" data-id="' + esc(a.id) + '" data-worker="' + esc(w.id) + '">Contactar</button>') +
+            : '<a href="#/mensajes" class="btn btn-primary btn-sm" data-action="open-chat" data-id="' + esc(w.id) + '">Enviar mensaje</a>') +
           '</span></div>';
       }).join('') : '<p class="small">Todavía no hay interesados. Te avisamos aquí cuando alguien se postule.</p>') + '</div>';
     }
@@ -1012,9 +1085,7 @@
         '<p class="short clamp">' + esc(w.bio || w.short || 'Trabajador de construcción.') + '</p>' +
         '<div class="btn-row">' +
           '<a href="#/perfil" class="btn btn-soft" data-action="open-profile" data-id="' + esc(w.id) + '">Ver perfil</a>' +
-          (st === 'connected' ? '<a href="#/mensajes" class="btn btn-primary" data-action="open-chat" data-id="' + esc(w.id) + '">Mensaje</a>'
-            : st === 'pending-out' ? '<button type="button" class="btn btn-pending" disabled>Solicitud enviada</button>'
-            : '<button type="button" class="btn btn-primary" data-action="connect" data-id="' + esc(w.id) + '">Contactar</button>') +
+          '<a href="#/mensajes" class="btn btn-primary" data-action="open-chat" data-id="' + esc(w.id) + '">Enviar mensaje</a>' +
         '</div></article>';
     }).join('') : '<div class="empty">' + (all.length ? 'No hay trabajadores con ese filtro. Prueba quitar "Solo disponibles" u otra ciudad.'
       : 'Todavía no hay trabajadores registrados. Comparte la página de la Bolsa de trabajo con la gente que conoces.') + '</div>';
@@ -1048,8 +1119,8 @@
     var res = await sb.from('connections').insert({ requester_id: me(), addressee_id: id }).select().single();
     if (res.error) return toast(errText(res.error));
     state.conns.push(res.data);
-    renderProfile(); renderPosts();
-    toast('Solicitud enviada.');
+    renderProfile(); renderPosts(); renderMessenger(); renderJobs();
+    toast('Solicitud de contacto enviada.');
   }
   async function acceptConn(connId) {
     var res = await sb.from('connections').update({ status: 'accepted' }).eq('id', connId).select().single();
@@ -1101,6 +1172,17 @@
         state.chatFromList = parseRoute().view === 'mensajes' && !parseRoute().id;
         go('#/mensajes/' + id);
         if (!isPhone()) setTimeout(function () { $('chatInput').focus({ preventScroll: true }); }, 200);
+        break;
+      case 'accept-chat':
+        await setChatPref(id, 'accepted');
+        renderMessenger();
+        break;
+      case 'ignore-chat':
+        await setChatPref(id, 'ignored');
+        state.active = null;
+        renderMessenger(); renderHeader();
+        location.replace('#/mensajes');
+        toast('Conversación ignorada. No te avisaremos de sus mensajes.');
         break;
       case 'chat-back':
         // En el teléfono: volver a la lista de conversaciones
@@ -1374,7 +1456,8 @@
     var res = await sb.from('messages').insert({ sender_id: me(), recipient_id: id, body: body }).select().single();
     if (res.error) { input.value = body; return toast(errText(res.error)); }
     if (!state.msgs.some(function (m) { return m.id === res.data.id; })) state.msgs.push(res.data);
-    renderMessenger();
+    if (state.chatPrefs[id] === 'ignored') setChatPref(id, 'accepted');
+    renderMessenger(); renderHeader();
   });
 
   $('chatInput').addEventListener('input', sendTyping);

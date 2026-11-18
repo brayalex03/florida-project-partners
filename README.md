@@ -24,6 +24,7 @@ js/config.js         Llaves públicas de Supabase
 js/app.js            Lógica de la página
 supabase/schema.sql              Base de datos, seguridad y fotos
 supabase/002_bolsa_de_trabajo.sql  Trabajadores, ofertas y postulaciones
+supabase/003_mensajes_sin_contacto.sql  Mensajes sin ser contactos y solicitudes de mensajes
 ```
 
 ## Puesta en marcha
