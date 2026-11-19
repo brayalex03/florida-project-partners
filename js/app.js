@@ -351,7 +351,7 @@
     var p = myProfile();
     $('authOut').hidden = !!state.user;
     $('authIn').hidden = !state.user;
-    if (p) { $('meAvatar').innerHTML = avatar(p, 28); $('meName').textContent = firstName(p); }
+    if (p) { $('meAvatar').innerHTML = avatar(p, 28); $('meAvatar2').innerHTML = avatar(p, 28); $('meName').textContent = firstName(p); }
     var unread = state.msgs.filter(function (m) { return m.recipient_id === me() && !m.read_at && state.chatPrefs[m.sender_id] !== 'ignored'; }).length;
     var reqs = state.conns.filter(function (c) { return c.status === 'pending' && c.addressee_id === me(); }).length + state.collabReqs.length;
     var total = unread + reqs;

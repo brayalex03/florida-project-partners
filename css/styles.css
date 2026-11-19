@@ -495,36 +495,57 @@ a.pill-ok { text-decoration: none; }
 
 .tabbar { display: none; }
 @media (max-width: 760px) {
-  .nav-links { display: none; }
-  .header-row { flex-wrap: nowrap; padding-top: 10px; padding-bottom: 10px; }
-  .brand { font-size: 16px; min-width: 0; }
+  /* Arriba: logo y, debajo, las secciones (Trabajo, Miembros, Publicaciones…) */
+  .header-row { flex-wrap: wrap; row-gap: 8px; padding-top: 10px; padding-bottom: 8px; }
+  .brand { font-size: 17px; min-width: 0; }
   .brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .brand svg { width: 30px; height: 30px; flex-shrink: 0; }
-  .nav { flex-wrap: nowrap; flex-shrink: 0; }
-  .nav-auth { margin-left: 0; }
-  #authIn .me-link #meName { display: none; }
-  #authIn .btn-ghost { padding: 0 10px; }
-  #authOut .btn { padding: 0 12px; }
+  .nav { display: contents; }
+  #authIn { display: none !important; }
+  #authOut { margin-left: auto; }
+  #authOut .btn { padding: 0 12px; min-height: 38px; }
+  .nav-links {
+    order: 3; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    background: transparent; border: none; padding: 2px 0; gap: 8px;
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { flex-shrink: 0; background: var(--sand); border: 1px solid var(--line); min-height: 40px; }
+  .nav-links a[aria-current="page"] { border-color: var(--teal); }
+  .nav-links .nav-msg, .nav-links .nav-contacts { display: none !important; }
 
-  .tabbar {
+  /* Abajo: Contactos, Mensajes, Perfil, Salir */
+  body.logged-in .tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     justify-content: space-around; align-items: stretch;
     padding: 6px 6px max(6px, env(safe-area-inset-bottom));
     background: rgba(255,255,255,0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border-top: 1px solid var(--line); box-shadow: 0 -4px 18px rgba(22,35,43,0.06);
   }
-  .tabbar a {
+  .tabbar a, .tabbar button {
     position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 4px 2px; border-radius: 14px; text-decoration: none; color: var(--muted);
-    font-size: 11px; font-weight: 600; transition: color .15s ease;
+    padding: 4px 2px; border: none; background: none; border-radius: 14px; text-decoration: none; color: var(--muted);
+    font: 600 11px Inter, system-ui, sans-serif; cursor: pointer; transition: color .15s ease;
   }
   .tabbar .ico { width: 24px; height: 24px; padding: 4px 16px; box-sizing: content-box; border-radius: 999px; transition: background-color .15s ease; }
+  .tabbar .tab-avatar { display: flex; align-items: center; justify-content: center; height: 32px; padding: 0 14px; border-radius: 999px; transition: background-color .15s ease; }
+  .tabbar .tab-avatar .avatar { width: 26px; height: 26px; font-size: 11px; }
   .tabbar .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .tabbar a[aria-current="page"] { color: var(--teal); }
   .tabbar a[aria-current="page"] .ico { background: var(--teal); color: #FFFFFF; stroke-width: 2; }
+  .tabbar a[aria-current="page"] .tab-avatar { background: var(--teal); }
+  .tabbar a[aria-current="page"] .tab-avatar .avatar { box-shadow: 0 0 0 2px #FFFFFF; }
+  .tabbar .tab-exit:hover { color: var(--alert); }
   .tabbar .badge { position: absolute; top: 0; left: calc(50% + 8px); min-width: 18px; height: 18px; font-size: 11px; padding: 0 5px; border: 2px solid #FFFFFF; }
-  body:not(.logged-in) .tabbar .nav-msg, body:not(.logged-in) .tabbar .nav-contacts { display: none; }
-  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  body.logged-in { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
-  body[data-view="mensajes"][data-chat="open"] .tabbar { display: none; }
+  body[data-view="mensajes"][data-chat="open"] .tabbar { display: none !important; }
+}
+
+.nav-links .lbl-short { display: none; }
+@media (max-width: 760px) {
+  .nav-links .lbl-long { display: none; }
+  .nav-links .lbl-short { display: inline; }
+  .nav-links { gap: 5px; }
+  .nav-links a { padding: 0 10px; font-size: 13.5px; gap: 5px; min-height: 38px; }
+  .nav-links .ico { width: 17px; height: 17px; }
 }
