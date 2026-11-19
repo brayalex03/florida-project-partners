@@ -514,7 +514,7 @@ a.pill-ok { text-decoration: none; }
   .nav-links .nav-msg, .nav-links .nav-contacts { display: none !important; }
 
   /* Abajo: Contactos, Mensajes, Perfil, Salir */
-  body.logged-in .tabbar {
+  .tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     justify-content: space-around; align-items: stretch;
     padding: 6px 6px max(6px, env(safe-area-inset-bottom));
@@ -536,7 +536,7 @@ a.pill-ok { text-decoration: none; }
   .tabbar a[aria-current="page"] .tab-avatar .avatar { box-shadow: 0 0 0 2px #FFFFFF; }
   .tabbar .tab-exit:hover { color: var(--alert); }
   .tabbar .badge { position: absolute; top: 0; left: calc(50% + 8px); min-width: 18px; height: 18px; font-size: 11px; padding: 0 5px; border: 2px solid #FFFFFF; }
-  body.logged-in { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
   body[data-view="mensajes"][data-chat="open"] .tabbar { display: none !important; }
 }
@@ -548,4 +548,13 @@ a.pill-ok { text-decoration: none; }
   .nav-links { gap: 5px; }
   .nav-links a { padding: 0 10px; font-size: 13.5px; gap: 5px; min-height: 38px; }
   .nav-links .ico { width: 17px; height: 17px; }
+}
+
+/* Barra de abajo: con sesión (Contactos, Mensajes, Perfil, Salir) o sin sesión (Entrar, Crear perfil) */
+body.logged-in .tabbar .tab-guest, body:not(.logged-in) .tabbar .tab-auth { display: none !important; }
+@media (max-width: 760px) {
+  #authOut { display: none !important; }
+  body:not(.logged-in) .tabbar .tab-guest[data-action="open-login"] { color: var(--ink); }
+  body:not(.logged-in) .tabbar a.tab-guest .ico { background: var(--teal); color: #FFFFFF; }
+  body:not(.logged-in) .tabbar a.tab-guest { color: var(--teal); }
 }

@@ -1205,7 +1205,11 @@
       case 'open-login': e.preventDefault(); openLogin(); break;
       case 'close-dialog': { var d = el.closest('dialog'); if (d) d.close(); break; }
       case 'logout':
-        await sb.auth.signOut();
+        el.disabled = true;
+        try { await sb.auth.signOut(); } catch (err) { console.error(err); }
+        // Actualizar la página al instante, aunque el aviso del servidor tarde
+        await handleUser(null);
+        el.disabled = false;
         go('#/');
         toast('Saliste de tu cuenta.');
         break;
